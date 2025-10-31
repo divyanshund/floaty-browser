@@ -13,7 +13,6 @@ class WindowManager: NSObject {
     
     private var bubbles: [UUID: BubbleWindow] = [:]
     private var panels: [UUID: PanelWindow] = [:]
-    private var globalShortcutMonitor: Any?
     
     private var isInitialized = false
     
@@ -36,7 +35,6 @@ class WindowManager: NSObject {
         isInitialized = true
         
         NSLog("🔧 FloatyBrowser: WindowManager initializing bubbles")
-        setupGlobalShortcut()
         NSLog("🔧 FloatyBrowser: About to load saved bubbles")
         loadSavedBubbles()
         NSLog("🔧 FloatyBrowser: WindowManager initialization complete")
@@ -209,30 +207,7 @@ class WindowManager: NSObject {
         saveAllBubbles()
     }
     
-    // MARK: - Global Shortcut
-    
-    private func setupGlobalShortcut() {
-        // Monitor Ctrl+Option+Space (⌃⌥Space) to toggle all panels
-        globalShortcutMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            // Check for Ctrl+Option+Space
-            let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-            if modifiers == [.control, .option] && event.keyCode == 49 { // 49 = Space
-                self?.toggleAllPanels()
-            }
-        }
-        
-        // Also add local monitor for when app is active
-        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-            if modifiers == [.control, .option] && event.keyCode == 49 {
-                self?.toggleAllPanels()
-                return nil // Consume event
-            }
-            return event
-        }
-        
-        print("ℹ️ Global shortcut: Ctrl+Option+Space to toggle panels")
-    }
+    // MARK: - Panel Management
     
     func toggleAllPanels() {
         if panels.isEmpty {
@@ -262,28 +237,7 @@ class WindowManager: NSObject {
         expandBubble(bubbleArray[index])
     }
     
-    // MARK: - Accessibility Permission
-    
-    func checkAccessibilityPermission() -> Bool {
-        let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: false]
-        let accessEnabled = AXIsProcessTrustedWithOptions(options)
-        
-        if !accessEnabled {
-            print("⚠️ Accessibility permission not granted. Global shortcuts may not work.")
-        }
-        
-        return accessEnabled
-    }
-    
-    func requestAccessibilityPermission() {
-        let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
-        _ = AXIsProcessTrustedWithOptions(options)
-    }
-    
     deinit {
-        if let monitor = globalShortcutMonitor {
-            NSEvent.removeMonitor(monitor)
-        }
         NotificationCenter.default.removeObserver(self)
     }
 }

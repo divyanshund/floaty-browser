@@ -41,15 +41,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSLog("📍 FloatyBrowser: Activating app")
         NSApp.activate(ignoringOtherApps: true)
         
+        // Setup main menu for keyboard shortcuts
+        NSLog("📍 FloatyBrowser: Setting up main menu")
+        setupMainMenu()
+        
         // NOW initialize WindowManager and create windows
         NSLog("📍 FloatyBrowser: About to initialize WindowManager")
         windowManager.initialize()
         NSLog("📍 FloatyBrowser: WindowManager initialized")
-        
-        // Check accessibility permission (for global shortcuts)
-        if !windowManager.checkAccessibilityPermission() {
-            showAccessibilityAlert()
-        }
         
         NSLog("✅ FloatyBrowser: App ready - bubbles should be visible")
         print("✅ Floaty Browser ready")
@@ -140,13 +139,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         menu.addItem(.separator())
         
-        // Enable Global Shortcuts
-        let accessibilityItem = NSMenuItem(title: "Enable Global Shortcuts (⌃⌥Space)...", action: #selector(requestAccessibility), keyEquivalent: "")
-        accessibilityItem.target = self
-        menu.addItem(accessibilityItem)
-        
-        menu.addItem(.separator())
-        
         // About
         let aboutItem = NSMenuItem(title: "About Floaty Browser", action: #selector(showAbout), keyEquivalent: "")
         aboutItem.target = self
@@ -181,10 +173,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         windowManager.expandBubbleAtIndex(sender.tag)
     }
     
-    @objc private func requestAccessibility() {
-        windowManager.requestAccessibilityPermission()
-    }
-    
     @objc private func showAbout() {
         let alert = NSAlert()
         alert.messageText = "Floaty Browser"
@@ -197,7 +185,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         • Floating bubbles that stay on top
         • Click to expand into web panels
         • Create new bubbles from links
-        • Global shortcut: ⌃⌥Space
+        • Offline Snake game
         
         Built with Swift and AppKit.
         """
@@ -206,25 +194,48 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         alert.runModal()
     }
     
-    private func showAccessibilityAlert() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            let alert = NSAlert()
-            alert.messageText = "Enable Global Shortcuts"
-            alert.informativeText = """
-            Floaty Browser can use global keyboard shortcuts (⌃⌥Space) to quickly show/hide panels.
-            
-            To enable this feature, please grant Accessibility permission in System Settings > Privacy & Security > Accessibility.
-            """
-            alert.alertStyle = .informational
-            alert.addButton(withTitle: "Open System Settings")
-            alert.addButton(withTitle: "Not Now")
-            
-            let response = alert.runModal()
-            
-            if response == .alertFirstButtonReturn {
-                self?.windowManager.requestAccessibilityPermission()
-            }
-        }
+    // MARK: - Main Menu Setup
+    
+    private func setupMainMenu() {
+        let mainMenu = NSMenu()
+        
+        // App Menu
+        let appMenuItem = NSMenuItem()
+        mainMenu.addItem(appMenuItem)
+        let appMenu = NSMenu()
+        appMenu.addItem(withTitle: "About FloatyBrowser", action: #selector(showAbout), keyEquivalent: "")
+        appMenu.addItem(.separator())
+        appMenu.addItem(withTitle: "Quit FloatyBrowser", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenuItem.submenu = appMenu
+        
+        // Edit Menu (CRITICAL for keyboard shortcuts)
+        let editMenuItem = NSMenuItem()
+        mainMenu.addItem(editMenuItem)
+        let editMenu = NSMenu(title: "Edit")
+        editMenu.addItem(withTitle: "Undo", action: #selector(UndoManager.undo), keyEquivalent: "z")
+        editMenu.addItem(withTitle: "Redo", action: #selector(UndoManager.redo), keyEquivalent: "Z")
+        editMenu.addItem(.separator())
+        editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editMenuItem.submenu = editMenu
+        
+        // Window Menu
+        let windowMenuItem = NSMenuItem()
+        mainMenu.addItem(windowMenuItem)
+        let windowMenu = NSMenu(title: "Window")
+        windowMenu.addItem(withTitle: "Minimize", action: #selector(NSWindow.miniaturize(_:)), keyEquivalent: "m")
+        windowMenu.addItem(withTitle: "Zoom", action: #selector(NSWindow.zoom(_:)), keyEquivalent: "")
+        windowMenu.addItem(.separator())
+        windowMenu.addItem(withTitle: "Bring All to Front", action: #selector(NSApplication.arrangeInFront(_:)), keyEquivalent: "")
+        windowMenuItem.submenu = windowMenu
+        NSApp.windowsMenu = windowMenu
+        
+        // Set the main menu
+        NSApp.mainMenu = mainMenu
+        
+        NSLog("✅ FloatyBrowser: Main menu setup complete - keyboard shortcuts enabled")
     }
 }
 

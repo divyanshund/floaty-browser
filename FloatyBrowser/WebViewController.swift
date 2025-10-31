@@ -313,6 +313,32 @@ class WebViewController: NSViewController {
         webView.removeObserver(self, forKeyPath: #keyPath(WKWebView.canGoForward))
         webView.removeObserver(self, forKeyPath: #keyPath(WKWebView.url))
     }
+    
+    // MARK: - Network Error Detection
+    
+    private func isNetworkError(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        if nsError.domain == NSURLErrorDomain {
+            switch nsError.code {
+            case NSURLErrorNotConnectedToInternet, NSURLErrorNetworkConnectionLost,
+                 NSURLErrorDNSLookupFailed, NSURLErrorCannotFindHost,
+                 NSURLErrorCannotConnectToHost, NSURLErrorTimedOut:
+                return true
+            default:
+                return false
+            }
+        }
+        return false
+    }
+    
+    private func loadSnakeGame() {
+        guard let gameURL = Bundle.main.url(forResource: "snake_game", withExtension: "html") else {
+            print("❌ Could not find snake_game.html")
+            return
+        }
+        webView.loadFileURL(gameURL, allowingReadAccessTo: gameURL.deletingLastPathComponent())
+        print("🎮 FloatyBrowser: Loading Snake Game - no internet detected")
+    }
 }
 
 // MARK: - NSTextFieldDelegate
@@ -363,6 +389,17 @@ extension WebViewController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         progressIndicator.isHidden = true
         print("❌ Navigation failed: \(error.localizedDescription)")
+        if isNetworkError(error) {
+            loadSnakeGame()
+        }
+    }
+    
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        progressIndicator.isHidden = true
+        print("❌ Provisional navigation failed: \(error.localizedDescription)")
+        if isNetworkError(error) {
+            loadSnakeGame()
+        }
     }
 }
 

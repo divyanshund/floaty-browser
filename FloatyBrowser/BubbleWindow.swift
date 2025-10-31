@@ -338,15 +338,26 @@ class BubbleView: NSView {
         
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.2
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             
             if hovered {
+                // Enhanced glow effect on hover
                 animator().alphaValue = 1.0
-                layer?.shadowOpacity = 0.5
-                layer?.shadowRadius = 10
+                layer?.shadowColor = NSColor(calibratedRed: 0.4, green: 0.7, blue: 1.0, alpha: 1.0).cgColor
+                layer?.shadowOpacity = 0.8
+                layer?.shadowRadius = 20
+                
+                // Subtle scale up
+                layer?.transform = CATransform3DMakeScale(1.05, 1.05, 1.0)
             } else {
+                // Normal state
                 animator().alphaValue = 0.95
+                layer?.shadowColor = NSColor.black.cgColor
                 layer?.shadowOpacity = 0.3
                 layer?.shadowRadius = 6
+                
+                // Reset scale
+                layer?.transform = CATransform3DIdentity
             }
         }
     }

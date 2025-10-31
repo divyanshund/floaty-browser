@@ -51,6 +51,10 @@ class BubbleWindow: NSPanel {
         
         // Accept mouse clicks
         acceptsMouseMovedEvents = true
+        
+        // Ensure window doesn't clip shadow
+        contentView?.wantsLayer = true
+        contentView?.layer?.masksToBounds = false
     }
     
     // Allow the panel to receive clicks even when not key
@@ -343,23 +347,19 @@ class BubbleView: NSView {
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             
             if hovered {
-                // Enhanced glow effect on hover
+                // Enhanced glow effect on hover - no scaling to avoid clipping
                 animator().alphaValue = 1.0
                 layer?.shadowColor = NSColor(calibratedRed: 0.4, green: 0.7, blue: 1.0, alpha: 1.0).cgColor
-                layer?.shadowOpacity = 0.8
-                layer?.shadowRadius = 20
-                
-                // Subtle scale up
-                layer?.transform = CATransform3DMakeScale(1.05, 1.05, 1.0)
+                layer?.shadowOpacity = 0.9
+                layer?.shadowRadius = 25
+                layer?.shadowOffset = CGSize(width: 0, height: 0)
             } else {
                 // Normal state
                 animator().alphaValue = 0.95
                 layer?.shadowColor = NSColor.black.cgColor
                 layer?.shadowOpacity = 0.3
                 layer?.shadowRadius = 6
-                
-                // Reset scale
-                layer?.transform = CATransform3DIdentity
+                layer?.shadowOffset = CGSize(width: 0, height: -2)
             }
         }
     }

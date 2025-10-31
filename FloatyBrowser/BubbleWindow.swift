@@ -41,20 +41,14 @@ class BubbleWindow: NSPanel {
         level = .floating
         backgroundColor = .clear
         isOpaque = false
-        hasShadow = true
+        hasShadow = false
         ignoresMouseEvents = false
         hidesOnDeactivate = false
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         
         // Allow the window to accept mouse events
         isMovableByWindowBackground = false
-        
-        // Accept mouse clicks
         acceptsMouseMovedEvents = true
-        
-        // Ensure window doesn't clip shadow
-        contentView?.wantsLayer = true
-        contentView?.layer?.masksToBounds = false
     }
     
     // Allow the panel to receive clicks even when not key
@@ -336,19 +330,19 @@ class BubbleView: NSView {
     }
     
     private func setupInnerGlowLayer() {
-        // Create inner glow ring layer
+        // Create soft, diffused inner glow layer
         let glowLayer = CALayer()
-        glowLayer.frame = bounds.insetBy(dx: 2, dy: 2)
+        glowLayer.frame = bounds.insetBy(dx: 5, dy: 5)
         glowLayer.cornerRadius = glowLayer.bounds.width / 2
-        glowLayer.borderWidth = 8
+        glowLayer.borderWidth = 15  // Wider for more spread
         glowLayer.borderColor = NSColor(calibratedRed: 0.5, green: 0.8, blue: 1.0, alpha: 0.0).cgColor
         glowLayer.shadowColor = NSColor(calibratedRed: 0.5, green: 0.8, blue: 1.0, alpha: 1.0).cgColor
         glowLayer.shadowOpacity = 0
         glowLayer.shadowOffset = CGSize.zero
-        glowLayer.shadowRadius = 12
+        glowLayer.shadowRadius = 20  // Larger radius for more blur
         glowLayer.masksToBounds = false
         
-        layer?.addSublayer(glowLayer)
+        layer?.insertSublayer(glowLayer, at: 1)  // Above gradient, below content
         self.innerGlowLayer = glowLayer
     }
     
@@ -360,12 +354,12 @@ class BubbleView: NSView {
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             
             if hovered {
-                // Show inner glow on hover
+                // Show soft, diffused inner glow
                 animator().alphaValue = 1.0
-                innerGlowLayer?.shadowOpacity = 0.9
-                innerGlowLayer?.borderColor = NSColor(calibratedRed: 0.5, green: 0.8, blue: 1.0, alpha: 0.6).cgColor
+                innerGlowLayer?.shadowOpacity = 1.0
+                innerGlowLayer?.borderColor = NSColor(calibratedRed: 0.5, green: 0.8, blue: 1.0, alpha: 0.5).cgColor
             } else {
-                // Hide inner glow
+                // Hide glow
                 animator().alphaValue = 0.95
                 innerGlowLayer?.shadowOpacity = 0
                 innerGlowLayer?.borderColor = NSColor(calibratedRed: 0.5, green: 0.8, blue: 1.0, alpha: 0.0).cgColor

@@ -268,12 +268,14 @@ class BubbleView: NSView {
     private let iconImageView = NSImageView()
     private var usingImage = false
     private weak var bubbleWindow: BubbleWindow?
+    private var innerGlowLayer: CALayer?
     
     init(frame frameRect: NSRect, owner: BubbleWindow) {
         self.bubbleWindow = owner
         super.init(frame: frameRect)
         setupView()
         setupTrackingArea()
+        setupInnerGlowLayer()
     }
     
     required init?(coder: NSCoder) {
@@ -301,9 +303,9 @@ class BubbleView: NSView {
     private func setupView() {
         wantsLayer = true
         
-        // Circular mask - DON'T clip to bounds (needed for shadow and scale)
+        // Circular mask
         layer?.cornerRadius = bounds.width / 2
-        layer?.masksToBounds = false
+        layer?.masksToBounds = true  // Clip to bounds for inner glow
         
         // Background gradient
         let gradientLayer = CAGradientLayer()
@@ -316,13 +318,7 @@ class BubbleView: NSView {
         ]
         gradientLayer.startPoint = CGPoint(x: 0, y: 0)
         gradientLayer.endPoint = CGPoint(x: 1, y: 1)
-        layer?.addSublayer(gradientLayer)
-        
-        // Shadow
-        layer?.shadowColor = NSColor.black.cgColor
-        layer?.shadowOpacity = 0.3
-        layer?.shadowOffset = CGSize(width: 0, height: -2)
-        layer?.shadowRadius = 6
+        layer?.insertSublayer(gradientLayer, at: 0)
         
         // Icon label (emoji fallback)
         iconLabel.font = NSFont.systemFont(ofSize: 24)
@@ -332,34 +328,47 @@ class BubbleView: NSView {
         addSubview(iconLabel)
         
         // Icon image view (for real favicons)
-        iconImageView.frame = bounds.insetBy(dx: 12, dy: 12) // Add padding
+        iconImageView.frame = bounds.insetBy(dx: 12, dy: 12)
         iconImageView.autoresizingMask = [.width, .height]
         iconImageView.imageScaling = .scaleProportionallyUpOrDown
         iconImageView.isHidden = true
         addSubview(iconImageView)
     }
     
+    private func setupInnerGlowLayer() {
+        // Create inner glow ring layer
+        let glowLayer = CALayer()
+        glowLayer.frame = bounds.insetBy(dx: 2, dy: 2)
+        glowLayer.cornerRadius = glowLayer.bounds.width / 2
+        glowLayer.borderWidth = 8
+        glowLayer.borderColor = NSColor(calibratedRed: 0.5, green: 0.8, blue: 1.0, alpha: 0.0).cgColor
+        glowLayer.shadowColor = NSColor(calibratedRed: 0.5, green: 0.8, blue: 1.0, alpha: 1.0).cgColor
+        glowLayer.shadowOpacity = 0
+        glowLayer.shadowOffset = CGSize.zero
+        glowLayer.shadowRadius = 12
+        glowLayer.masksToBounds = false
+        
+        layer?.addSublayer(glowLayer)
+        self.innerGlowLayer = glowLayer
+    }
+    
     func setHovered(_ hovered: Bool) {
         isHovered = hovered
         
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.2
+            context.duration = 0.3
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             
             if hovered {
-                // Enhanced glow effect on hover - no scaling to avoid clipping
+                // Show inner glow on hover
                 animator().alphaValue = 1.0
-                layer?.shadowColor = NSColor(calibratedRed: 0.4, green: 0.7, blue: 1.0, alpha: 1.0).cgColor
-                layer?.shadowOpacity = 0.9
-                layer?.shadowRadius = 25
-                layer?.shadowOffset = CGSize(width: 0, height: 0)
+                innerGlowLayer?.shadowOpacity = 0.9
+                innerGlowLayer?.borderColor = NSColor(calibratedRed: 0.5, green: 0.8, blue: 1.0, alpha: 0.6).cgColor
             } else {
-                // Normal state
+                // Hide inner glow
                 animator().alphaValue = 0.95
-                layer?.shadowColor = NSColor.black.cgColor
-                layer?.shadowOpacity = 0.3
-                layer?.shadowRadius = 6
-                layer?.shadowOffset = CGSize(width: 0, height: -2)
+                innerGlowLayer?.shadowOpacity = 0
+                innerGlowLayer?.borderColor = NSColor(calibratedRed: 0.5, green: 0.8, blue: 1.0, alpha: 0.0).cgColor
             }
         }
     }

@@ -51,9 +51,15 @@ class WindowManager: NSObject {
         
         bubbles[id] = bubble
         
-        // Make sure bubble is visible
+        // Ensure bubble is fully visible and ready for interaction
+        // Using orderFrontRegardless ensures it appears even if app isn't active
         bubble.orderFrontRegardless()
-        bubble.makeKeyAndOrderFront(nil)
+        
+        // Small delay to ensure window server has processed the window
+        // This prevents the first click being lost due to window setup
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            bubble.orderFront(nil)
+        }
         
         print("✅ Created bubble \(id) for \(url)")
         print("   Position: \(bubblePosition)")

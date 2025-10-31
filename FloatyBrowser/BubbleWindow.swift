@@ -82,10 +82,17 @@ class BubbleWindow: NSPanel {
     
     override func mouseDown(with event: NSEvent) {
         NSLog("🖱️ FloatyBrowser: Mouse down in bubble")
+        
+        // Ensure we're processing the event
         let location = event.locationInWindow
         dragOffset = location
         isDragging = false // Start as false, set to true only if actually dragged
         stopIdleAnimation()
+        
+        // Accept first responder to ensure we receive mouse events
+        if !self.isKeyWindow {
+            self.makeFirstResponder(self)
+        }
     }
     
     override func mouseDragged(with event: NSEvent) {

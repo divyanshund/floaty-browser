@@ -14,49 +14,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         NSLog("🚀 FloatyBrowser: App launched - starting initialization")
-        print("🚀 Floaty Browser launched")
-        fflush(stdout)
         
-        // Show alert to confirm app is running
-        DispatchQueue.main.async {
-            let alert = NSAlert()
-            alert.messageText = "FloatyBrowser Launching"
-            alert.informativeText = "The app is starting up. You should see a bubble appear shortly."
-            alert.alertStyle = .informational
-            alert.addButton(withTitle: "OK")
-            alert.runModal()
-        }
-        
-        // Setup menu bar item FIRST
-        NSLog("📍 FloatyBrowser: About to setup menu bar")
+        // Setup menu bar item immediately
         setupMenuBar()
-        NSLog("📍 FloatyBrowser: Menu bar setup complete")
-        
-        // Ensure app doesn't terminate when all windows are closed
-        // Using .regular instead of .accessory so the app shows in Dock initially
-        NSLog("📍 FloatyBrowser: Setting activation policy")
-        NSApp.setActivationPolicy(.regular)
-        
-        // Force app to activate and bring windows to front
-        NSLog("📍 FloatyBrowser: Activating app")
-        NSApp.activate(ignoringOtherApps: true)
         
         // Setup main menu for keyboard shortcuts
-        NSLog("📍 FloatyBrowser: Setting up main menu")
         setupMainMenu()
         
-        // NOW initialize WindowManager and create windows
-        NSLog("📍 FloatyBrowser: About to initialize WindowManager")
-        windowManager.initialize()
-        NSLog("📍 FloatyBrowser: WindowManager initialized")
+        // Configure app activation policy (shows in Dock)
+        NSApp.setActivationPolicy(.regular)
         
-        NSLog("✅ FloatyBrowser: App ready - bubbles should be visible")
-        print("✅ Floaty Browser ready")
-        print("ℹ️  You should see:")
-        print("   • Menu bar icon (🫧) in top-right")
-        print("   • A circular bubble floating on screen")
-        print("   • Click the bubble to expand into a browser panel")
-        fflush(stdout)
+        // Activate app and wait for full activation before creating windows
+        // This prevents the first click being consumed by app activation
+        NSApp.activate(ignoringOtherApps: true)
+        
+        // Small delay to ensure app is fully activated and ready to receive clicks
+        // This prevents the "first click doesn't work" issue on launch
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            guard let self = self else { return }
+            
+            NSLog("📍 FloatyBrowser: App fully activated - creating windows")
+            
+            // NOW initialize WindowManager and create bubbles
+            self.windowManager.initialize()
+            
+            NSLog("✅ FloatyBrowser: Ready - bubbles are now clickable")
+        }
     }
     
     func applicationWillTerminate(_ aNotification: Notification) {

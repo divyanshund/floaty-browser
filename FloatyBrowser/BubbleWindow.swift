@@ -297,13 +297,15 @@ class BubbleView: NSView {
     private func setupView() {
         wantsLayer = true
         
-        // Circular mask
+        // Circular mask - DON'T clip to bounds (needed for shadow and scale)
         layer?.cornerRadius = bounds.width / 2
-        layer?.masksToBounds = true
+        layer?.masksToBounds = false
         
         // Background gradient
         let gradientLayer = CAGradientLayer()
         gradientLayer.frame = bounds
+        gradientLayer.cornerRadius = bounds.width / 2
+        gradientLayer.masksToBounds = true
         gradientLayer.colors = [
             NSColor(calibratedRed: 0.3, green: 0.6, blue: 1.0, alpha: 0.95).cgColor,
             NSColor(calibratedRed: 0.2, green: 0.4, blue: 0.8, alpha: 0.95).cgColor

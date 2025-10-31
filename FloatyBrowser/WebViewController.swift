@@ -35,6 +35,19 @@ class WebViewController: NSViewController {
             config.preferences.javaScriptEnabled = true
         }
         
+        // Inject viewport meta tag for responsive design
+        let viewportScript = WKUserScript(
+            source: """
+            var meta = document.createElement('meta');
+            meta.name = 'viewport';
+            meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes';
+            document.getElementsByTagName('head')[0].appendChild(meta);
+            """,
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: true
+        )
+        config.userContentController.addUserScript(viewportScript)
+        
         return config
     }()
     
@@ -141,6 +154,9 @@ class WebViewController: NSViewController {
         
         // Allow keyboard events in WKWebView
         webView.allowsBackForwardNavigationGestures = true
+        
+        // Set custom user agent to identify as desktop browser
+        webView.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15 FloatyBrowser/1.0"
         
         // Add progress indicator
         progressIndicator = NSProgressIndicator()

@@ -90,8 +90,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @objc private func statusBarButtonClicked(_ sender: NSStatusBarButton) {
-        guard let event = NSApp.currentEvent else { return }
-        
         // Show menu on both left and right click
         showStatusBarMenu()
     }

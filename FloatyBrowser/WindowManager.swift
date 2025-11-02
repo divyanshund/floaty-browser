@@ -114,25 +114,29 @@ class WindowManager: NSObject {
     }
     
     func closeBubble(_ bubble: BubbleWindow) {
-        NSLog("🗑️ closeBubble called for ID: %@", bubble.bubbleId.uuidString)
+        let bubbleId = bubble.bubbleId
+        NSLog("🗑️ closeBubble called for ID: %@", bubbleId.uuidString)
         
         // Close associated panel if open
-        if let panel = panels[bubble.bubbleId] {
+        if let panel = panels[bubbleId] {
             NSLog("🗑️ Closing associated panel")
-            panels.removeValue(forKey: bubble.bubbleId)
+            panels.removeValue(forKey: bubbleId)
             panel.close()
         } else {
             NSLog("🗑️ No associated panel found")
         }
         
-        NSLog("🗑️ Removing bubble from dictionary and closing window")
-        bubbles.removeValue(forKey: bubble.bubbleId)
-        bubble.close()
+        NSLog("🗑️ Removing bubble from dictionary")
+        bubbles.removeValue(forKey: bubbleId)
         
-        NSLog("🗑️ Saving all bubbles to persistence")
+        NSLog("🗑️ Ordering bubble out and closing window")
+        bubble.orderOut(nil)  // Remove from window list first
+        bubble.close()         // Then close
+        
+        NSLog("🗑️ Saving %d bubble(s) to persistence", bubbles.count)
         saveAllBubbles()
         
-        NSLog("🗑️ Bubble closed successfully. Remaining bubbles: %d", bubbles.count)
+        NSLog("✅ Bubble closed successfully. Remaining bubbles: %d", bubbles.count)
         
         // Don't auto-create default bubble when user explicitly closes one
         // Default bubble is only created on app launch if no saved bubbles exist

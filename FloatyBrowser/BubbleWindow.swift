@@ -51,6 +51,10 @@ class BubbleWindow: NSPanel {
         // Allow the window to accept mouse events
         isMovableByWindowBackground = false
         acceptsMouseMovedEvents = true
+        
+        // CRITICAL: Disable state restoration to prevent macOS from caching/restoring closed windows
+        isRestorable = false
+        restorationClass = nil
     }
     
     // Allow the panel to receive clicks even when not key

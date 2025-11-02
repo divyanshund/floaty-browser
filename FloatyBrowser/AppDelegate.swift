@@ -91,6 +91,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let bubblesSubmenu = NSMenu()
         let bubbleCount = windowManager.getBubbleCount()
         
+        NSLog("📋 Menu: Building menu with %d bubble(s)", bubbleCount)
+        
         if bubbleCount > 0 {
             let bubbleURLs = windowManager.getAllBubbleURLs()
             for (index, urlString) in bubbleURLs.enumerated() {

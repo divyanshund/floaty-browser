@@ -58,6 +58,10 @@ class PanelWindow: NSPanel {
         // Make resizable with a subtle grip (system handles this with .resizable mask)
         isMovableByWindowBackground = true
         
+        // CRITICAL: Disable state restoration to prevent macOS from caching/restoring closed windows
+        isRestorable = false
+        restorationClass = nil
+        
         // Make sure the window becomes key to receive keyboard events
         makeKeyAndOrderFront(nil)
     }

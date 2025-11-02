@@ -223,19 +223,21 @@ class WindowManager: NSObject {
         guard let url = URL(string: urlString),
               let host = url.host else { return }
         
-        // Try standard favicon URL
-        let faviconURLString = "https://\(host)/favicon.ico"
+        // Use Google's high-quality favicon API (size 128 for Retina displays)
+        let faviconURLString = "https://www.google.com/s2/favicons?domain=\(host)&sz=128"
         guard let faviconURL = URL(string: faviconURLString) else { return }
         
-        URLSession.shared.dataTask(with: faviconURL) { [weak self, weak bubble] data, response, error in
+        URLSession.shared.dataTask(with: faviconURL) { [weak bubble] data, response, error in
             guard let data = data,
                   let image = NSImage(data: data),
                   error == nil else {
+                print("⚠️ Failed to fetch favicon for \(host)")
                 return
             }
             
             DispatchQueue.main.async {
                 bubble?.updateFavicon(image)
+                print("✅ Loaded high-quality favicon for \(host)")
             }
         }.resume()
     }

@@ -263,6 +263,7 @@ class BubbleView: NSView {
     private var usingImage = false
     private weak var bubbleWindow: BubbleWindow?
     private var innerGlowLayer: CALayer?
+    private var closeButton: NSButton?
     
     init(frame frameRect: NSRect, owner: BubbleWindow) {
         self.bubbleWindow = owner
@@ -270,6 +271,7 @@ class BubbleView: NSView {
         setupView()
         setupTrackingArea()
         setupInnerGlowLayer()
+        setupCloseButton()
     }
     
     required init?(coder: NSCoder) {
@@ -359,6 +361,38 @@ class BubbleView: NSView {
         self.innerGlowLayer = glowLayer
     }
     
+    private func setupCloseButton() {
+        // Create close button (X) that appears on hover
+        let button = NSButton(frame: NSRect(x: 2, y: bounds.height - 20, width: 18, height: 18))
+        button.title = "×"
+        button.font = NSFont.systemFont(ofSize: 16, weight: .medium)
+        button.bezelStyle = .circular
+        button.isBordered = true
+        button.wantsLayer = true
+        
+        // Style the button
+        button.layer?.backgroundColor = NSColor(white: 0.0, alpha: 0.7).cgColor
+        button.layer?.cornerRadius = 9
+        button.contentTintColor = .white
+        
+        // Add shadow for visibility
+        button.layer?.shadowColor = NSColor.black.cgColor
+        button.layer?.shadowOpacity = 0.5
+        button.layer?.shadowOffset = CGSize(width: 0, height: -1)
+        button.layer?.shadowRadius = 2
+        
+        button.target = self
+        button.action = #selector(closeButtonClicked)
+        button.alphaValue = 0  // Hidden by default
+        
+        addSubview(button)
+        self.closeButton = button
+    }
+    
+    @objc private func closeButtonClicked() {
+        bubbleWindow?.bubbleDelegate?.bubbleWindowDidRequestClose(bubbleWindow!)
+    }
+    
     func setHovered(_ hovered: Bool) {
         isHovered = hovered
         
@@ -371,11 +405,17 @@ class BubbleView: NSView {
                 animator().alphaValue = 1.0
                 innerGlowLayer?.shadowOpacity = 1.0
                 innerGlowLayer?.borderColor = NSColor(calibratedRed: 0.5, green: 0.8, blue: 1.0, alpha: 0.5).cgColor
+                
+                // Show close button
+                closeButton?.animator().alphaValue = 1.0
             } else {
                 // Hide glow
                 animator().alphaValue = 0.95
                 innerGlowLayer?.shadowOpacity = 0
                 innerGlowLayer?.borderColor = NSColor(calibratedRed: 0.5, green: 0.8, blue: 1.0, alpha: 0.0).cgColor
+                
+                // Hide close button
+                closeButton?.animator().alphaValue = 0
             }
         }
     }

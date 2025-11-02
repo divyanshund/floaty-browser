@@ -314,11 +314,24 @@ class BubbleView: NSView {
         gradientLayer.endPoint = CGPoint(x: 1, y: 1)
         layer?.insertSublayer(gradientLayer, at: 0)
         
-        // Icon label (emoji fallback)
-        iconLabel.font = NSFont.systemFont(ofSize: 24)
+        // Icon label (emoji fallback) - centered properly
+        iconLabel.font = NSFont.systemFont(ofSize: 28)
         iconLabel.alignment = .center
         iconLabel.frame = bounds
         iconLabel.autoresizingMask = [.width, .height]
+        iconLabel.textColor = .white
+        iconLabel.drawsBackground = false
+        iconLabel.isBezeled = false
+        iconLabel.isBordered = false
+        iconLabel.isEditable = false
+        iconLabel.isSelectable = false
+        // Center vertically and horizontally
+        iconLabel.usesSingleLineMode = true
+        iconLabel.lineBreakMode = .byClipping
+        iconLabel.cell?.wraps = false
+        iconLabel.cell?.isScrollable = false
+        iconLabel.cell?.usesSingleLineMode = true
+        iconLabel.baseWritingDirection = .natural
         addSubview(iconLabel)
         
         // Icon image view (for real favicons)

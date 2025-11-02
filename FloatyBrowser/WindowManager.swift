@@ -204,6 +204,9 @@ class WindowManager: NSObject {
             bubble.orderFrontRegardless()
             bubble.makeKeyAndOrderFront(nil)
             print("   • Restored bubble at \(validatedPosition)")
+            
+            // Fetch favicon for restored bubble
+            fetchFaviconForBubble(bubble)
         }
         
         print("✅ Restored \(bubbles.count) bubble(s)")
@@ -211,6 +214,30 @@ class WindowManager: NSObject {
     
     @objc private func applicationWillTerminate() {
         saveAllBubbles()
+    }
+    
+    // MARK: - Favicon Management
+    
+    private func fetchFaviconForBubble(_ bubble: BubbleWindow) {
+        let urlString = bubble.currentURL
+        guard let url = URL(string: urlString),
+              let host = url.host else { return }
+        
+        // Try standard favicon URL
+        let faviconURLString = "https://\(host)/favicon.ico"
+        guard let faviconURL = URL(string: faviconURLString) else { return }
+        
+        URLSession.shared.dataTask(with: faviconURL) { [weak self, weak bubble] data, response, error in
+            guard let data = data,
+                  let image = NSImage(data: data),
+                  error == nil else {
+                return
+            }
+            
+            DispatchQueue.main.async {
+                bubble?.updateFavicon(image)
+            }
+        }.resume()
     }
     
     // MARK: - Panel Management

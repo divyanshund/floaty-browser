@@ -317,13 +317,18 @@ class BubbleView: NSView {
     private func setupView() {
         wantsLayer = true
         
-        // Allow subviews (like close button) to extend beyond bounds
-        // But keep the layer masked for circular appearance
+        // Allow outer glow and subviews to extend beyond bounds
         clipsToBounds = false
         
-        // Circular mask for the layer
+        // Circular mask for the layer - but don't mask to bounds for outer shadow
         layer?.cornerRadius = bounds.width / 2
-        layer?.masksToBounds = true  // Clip layer content to circular shape
+        layer?.masksToBounds = false  // Allow outer glow to render
+        
+        // Add subtle outer shadow (glow) - hidden by default
+        layer?.shadowColor = NSColor(calibratedRed: 0.4, green: 0.7, blue: 1.0, alpha: 1.0).cgColor
+        layer?.shadowOpacity = 0  // Hidden by default
+        layer?.shadowOffset = CGSize.zero
+        layer?.shadowRadius = 8  // Subtle blur
         
         // Background gradient
         let gradientLayer = CAGradientLayer()
@@ -370,16 +375,16 @@ class BubbleView: NSView {
     }
     
     private func setupInnerGlowLayer() {
-        // Create soft, diffused inner glow layer
+        // Create subtle, blurry inner glow layer
         let glowLayer = CALayer()
-        glowLayer.frame = bounds.insetBy(dx: 5, dy: 5)
+        glowLayer.frame = bounds.insetBy(dx: 8, dy: 8)
         glowLayer.cornerRadius = glowLayer.bounds.width / 2
-        glowLayer.borderWidth = 15  // Wider for more spread
-        glowLayer.borderColor = NSColor(calibratedRed: 0.5, green: 0.8, blue: 1.0, alpha: 0.0).cgColor
-        glowLayer.shadowColor = NSColor(calibratedRed: 0.5, green: 0.8, blue: 1.0, alpha: 1.0).cgColor
+        glowLayer.borderWidth = 8  // Thinner for subtlety
+        glowLayer.borderColor = NSColor(calibratedRed: 0.6, green: 0.85, blue: 1.0, alpha: 0.0).cgColor
+        glowLayer.shadowColor = NSColor(calibratedRed: 0.6, green: 0.85, blue: 1.0, alpha: 1.0).cgColor
         glowLayer.shadowOpacity = 0
         glowLayer.shadowOffset = CGSize.zero
-        glowLayer.shadowRadius = 20  // Larger radius for more blur
+        glowLayer.shadowRadius = 12  // Very blurry and diffused
         glowLayer.masksToBounds = false
         
         layer?.insertSublayer(glowLayer, at: 1)  // Above gradient, below content
@@ -394,7 +399,7 @@ class BubbleView: NSView {
         // BubbleView is at (15, 0) with size 60x60 within container (75x75)
         // Position so button overlaps the bubble's edge nicely
         let xPos: CGFloat = 12  // Overlaps left edge of bubble
-        let yPos: CGFloat = 46  // Overlaps top edge of bubble (moved 4px down)
+        let yPos: CGFloat = 43  // Overlaps top edge of bubble
         
         let button = NSButton(frame: NSRect(x: xPos, y: yPos, width: buttonSize, height: buttonSize))
         button.title = "×"
@@ -436,18 +441,23 @@ class BubbleView: NSView {
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             
             if hovered {
-                // Show soft, diffused inner glow
+                // Show subtle outer glow
                 animator().alphaValue = 1.0
-                innerGlowLayer?.shadowOpacity = 1.0
-                innerGlowLayer?.borderColor = NSColor(calibratedRed: 0.5, green: 0.8, blue: 1.0, alpha: 0.5).cgColor
+                layer?.shadowOpacity = 0.4  // Subtle outer glow
+                
+                // Show subtle, blurry inner glow
+                innerGlowLayer?.shadowOpacity = 0.6  // More subtle than before
+                innerGlowLayer?.borderColor = NSColor(calibratedRed: 0.6, green: 0.85, blue: 1.0, alpha: 0.3).cgColor
                 
                 // Show close button
                 closeButton?.animator().alphaValue = 1.0
             } else {
-                // Hide glow
+                // Hide glows
                 animator().alphaValue = 0.95
+                layer?.shadowOpacity = 0  // Hide outer glow
+                
                 innerGlowLayer?.shadowOpacity = 0
-                innerGlowLayer?.borderColor = NSColor(calibratedRed: 0.5, green: 0.8, blue: 1.0, alpha: 0.0).cgColor
+                innerGlowLayer?.borderColor = NSColor(calibratedRed: 0.6, green: 0.85, blue: 1.0, alpha: 0.0).cgColor
                 
                 // Hide close button
                 closeButton?.animator().alphaValue = 0

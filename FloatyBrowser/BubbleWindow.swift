@@ -340,6 +340,9 @@ class BubbleView: NSView {
         iconImageView.frame = bounds.insetBy(dx: 12, dy: 12)
         iconImageView.autoresizingMask = [.width, .height]
         iconImageView.imageScaling = .scaleProportionallyUpOrDown
+        iconImageView.imageAlignment = .alignCenter
+        iconImageView.wantsLayer = true
+        iconImageView.layer?.magnificationFilter = .linear  // High-quality scaling
         iconImageView.isHidden = true
         addSubview(iconImageView)
     }
@@ -443,9 +446,22 @@ class BubbleView: NSView {
     }
     
     func setFaviconImage(_ image: NSImage) {
-        // Show real favicon image
+        // Show real favicon image with proper Retina scaling
         usingImage = true
-        iconImageView.image = image
+        
+        // Create a copy of the image to avoid modifying the original
+        // This ensures consistent quality across multiple uses
+        let displayImage = NSImage(size: image.size)
+        displayImage.addRepresentations(image.representations)
+        
+        // Set explicit size for crisp Retina rendering
+        // The image from Google is 128x128, but we display it at 36x36
+        // By setting the size to 36x36, NSImage will use the 128x128 data
+        // at 2x scale, resulting in perfect Retina quality
+        let displaySize = iconImageView.bounds.size
+        displayImage.size = displaySize
+        
+        iconImageView.image = displayImage
         iconImageView.isHidden = false
         iconLabel.isHidden = true
     }

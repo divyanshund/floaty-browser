@@ -138,28 +138,36 @@ class WindowManager: NSObject {
         }
         
         let visibleFrame = screen.visibleFrame
+        let bubbleSize: CGFloat = 60
+        let rightMargin: CGFloat = 20
+        let verticalSpacing: CGFloat = 80
         
-        // Find a position that doesn't overlap existing bubbles
-        var position = CGPoint(
-            x: visibleFrame.minX + 100,
-            y: visibleFrame.maxY - 150
-        )
+        // Position on the right side of the screen
+        let xPosition = visibleFrame.maxX - bubbleSize - rightMargin
         
-        // Offset from existing bubbles
-        let offset: CGFloat = 80
-        for (index, _) in bubbles.enumerated() {
-            position.x += offset * CGFloat(index % 5)
-            if index % 5 == 0 && index > 0 {
-                position.y -= offset
-            }
+        // Start from top and stack downwards
+        var yPosition = visibleFrame.maxY - 100  // Start below menu bar
+        
+        // Offset vertically for each existing bubble
+        let existingCount = bubbles.count
+        yPosition -= verticalSpacing * CGFloat(existingCount)
+        
+        // Ensure we don't go below the screen
+        // If we run out of space, wrap to a second column on the left of the first
+        if yPosition < visibleFrame.minY + 20 {
+            let column = existingCount / 8  // 8 bubbles per column
+            let row = existingCount % 8
+            
+            yPosition = visibleFrame.maxY - 100 - (verticalSpacing * CGFloat(row))
+            let columnOffset = (bubbleSize + 20) * CGFloat(column)
+            
+            return CGPoint(
+                x: visibleFrame.maxX - bubbleSize - rightMargin - columnOffset,
+                y: max(yPosition, visibleFrame.minY + 20)
+            )
         }
         
-        // Ensure within bounds
-        let bubbleSize: CGFloat = 60
-        position.x = min(position.x, visibleFrame.maxX - bubbleSize - 20)
-        position.y = max(position.y, visibleFrame.minY + 20)
-        
-        return position
+        return CGPoint(x: xPosition, y: yPosition)
     }
     
     func createDefaultBubble() {

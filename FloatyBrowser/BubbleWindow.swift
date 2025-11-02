@@ -365,24 +365,25 @@ class BubbleView: NSView {
     }
     
     private func setupCloseButton() {
-        // Create close button (X) that appears on hover
-        let button = NSButton(frame: NSRect(x: 2, y: bounds.height - 20, width: 18, height: 18))
+        // Create close button (X) that appears on hover - 20% larger
+        let buttonSize: CGFloat = 22  // Increased from 18 (20% larger)
+        let button = NSButton(frame: NSRect(x: 2, y: bounds.height - 24, width: buttonSize, height: buttonSize))
         button.title = "×"
-        button.font = NSFont.systemFont(ofSize: 16, weight: .medium)
+        button.font = NSFont.systemFont(ofSize: 20, weight: .semibold)  // Larger, bolder font
         button.bezelStyle = .circular
-        button.isBordered = true
+        button.isBordered = false  // Remove border for cleaner look
         button.wantsLayer = true
         
-        // Style the button
-        button.layer?.backgroundColor = NSColor(white: 0.0, alpha: 0.7).cgColor
-        button.layer?.cornerRadius = 9
+        // Style the button - dark background with white X
+        button.layer?.backgroundColor = NSColor(white: 0.15, alpha: 0.95).cgColor  // Darker, more opaque
+        button.layer?.cornerRadius = buttonSize / 2  // Perfect circle
         button.contentTintColor = .white
         
-        // Add shadow for visibility
+        // Add shadow for visibility and depth
         button.layer?.shadowColor = NSColor.black.cgColor
-        button.layer?.shadowOpacity = 0.5
+        button.layer?.shadowOpacity = 0.6
         button.layer?.shadowOffset = CGSize(width: 0, height: -1)
-        button.layer?.shadowRadius = 2
+        button.layer?.shadowRadius = 3
         
         button.target = self
         button.action = #selector(closeButtonClicked)

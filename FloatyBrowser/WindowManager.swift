@@ -114,22 +114,28 @@ class WindowManager: NSObject {
     }
     
     func closeBubble(_ bubble: BubbleWindow) {
+        NSLog("🗑️ closeBubble called for ID: %@", bubble.bubbleId.uuidString)
+        
         // Close associated panel if open
         if let panel = panels[bubble.bubbleId] {
+            NSLog("🗑️ Closing associated panel")
             panels.removeValue(forKey: bubble.bubbleId)
             panel.close()
+        } else {
+            NSLog("🗑️ No associated panel found")
         }
         
+        NSLog("🗑️ Removing bubble from dictionary and closing window")
         bubbles.removeValue(forKey: bubble.bubbleId)
         bubble.close()
         
-        print("🗑️ Closed bubble \(bubble.bubbleId)")
+        NSLog("🗑️ Saving all bubbles to persistence")
         saveAllBubbles()
         
-        // If no more bubbles, create a default one
-        if bubbles.isEmpty {
-            createDefaultBubble()
-        }
+        NSLog("🗑️ Bubble closed successfully. Remaining bubbles: %d", bubbles.count)
+        
+        // Don't auto-create default bubble when user explicitly closes one
+        // Default bubble is only created on app launch if no saved bubbles exist
     }
     
     private func calculateNewBubblePosition() -> CGPoint {
@@ -310,18 +316,26 @@ extension WindowManager: PanelWindowDelegate {
     
     func panelWindowDidRequestClose(_ panel: PanelWindow) {
         // Red close button = completely delete bubble and panel
-        print("🔴 FloatyBrowser: Closing panel and bubble completely")
+        NSLog("🔴 FloatyBrowser: Closing panel and bubble completely - ID: %@", panel.panelId.uuidString)
+        NSLog("🔴 Before close - Bubbles count: %d, Panels count: %d", bubbles.count, panels.count)
+        
+        let bubbleId = panel.panelId
         
         // Remove panel from dictionary and close it
-        panels.removeValue(forKey: panel.panelId)
+        panels.removeValue(forKey: bubbleId)
         panel.close()
+        NSLog("🔴 Panel closed and removed from dictionary")
         
         // Find and completely close the associated bubble
-        if let bubble = bubbles[panel.panelId] {
+        if let bubble = bubbles[bubbleId] {
+            NSLog("🔴 Found bubble, calling closeBubble()")
             closeBubble(bubble)  // This removes from dictionary and persistence
+            NSLog("🔴 closeBubble() completed")
+        } else {
+            NSLog("❌ ERROR: No bubble found with ID: %@", bubbleId.uuidString)
         }
         
-        print("✅ FloatyBrowser: Panel and bubble closed successfully")
+        NSLog("✅ After close - Bubbles count: %d, Panels count: %d", bubbles.count, panels.count)
     }
     
     func panelWindow(_ panel: PanelWindow, didRequestNewBubble url: String) {

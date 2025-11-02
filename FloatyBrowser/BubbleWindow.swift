@@ -22,8 +22,10 @@ class BubbleWindow: NSPanel {
         self.bubbleId = id
         self.currentURL = url
         
-        let size = CGSize(width: 60, height: 60)
-        let rect = NSRect(origin: position, size: size)
+        // Make window larger to accommodate close button outside the circular bubble
+        // Bubble circle: 60x60, Window: 75x75 (extra 15px for button to sit on top)
+        let windowSize = CGSize(width: 75, height: 75)
+        let rect = NSRect(origin: position, size: windowSize)
         
         super.init(
             contentRect: rect,
@@ -61,9 +63,26 @@ class BubbleWindow: NSPanel {
     }
     
     private func setupBubbleView() {
-        bubbleView = BubbleView(frame: contentView!.bounds, owner: self)
+        // Create a container view for the window (75x75)
+        let containerView = NSView(frame: contentView!.bounds)
+        containerView.wantsLayer = true
+        
+        // Position the circular bubble (60x60) offset to bottom-right within the 75x75 window
+        // This leaves space at top-left for the close button to sit outside the circle
+        let bubbleSize: CGFloat = 60
+        let offset: CGFloat = 15  // Space for close button
+        let bubbleFrame = NSRect(x: offset, y: 0, width: bubbleSize, height: bubbleSize)
+        
+        bubbleView = BubbleView(frame: bubbleFrame, owner: self)
         bubbleView.updateFavicon(for: currentURL)
-        contentView = bubbleView
+        
+        containerView.addSubview(bubbleView)
+        
+        // Add close button to container (not to bubbleView) so it sits outside the circle
+        let closeButton = bubbleView.createCloseButton()
+        containerView.addSubview(closeButton)
+        
+        contentView = containerView
     }
     
     override func mouseEntered(with event: NSEvent) {
@@ -271,7 +290,6 @@ class BubbleView: NSView {
         setupView()
         setupTrackingArea()
         setupInnerGlowLayer()
-        setupCloseButton()
     }
     
     required init?(coder: NSCoder) {
@@ -368,14 +386,15 @@ class BubbleView: NSView {
         self.innerGlowLayer = glowLayer
     }
     
-    private func setupCloseButton() {
+    func createCloseButton() -> NSButton {
         // Create close button (X) that appears on hover - 20% larger
         let buttonSize: CGFloat = 22  // Increased from 18 (20% larger)
         
-        // Position button to sit on top of bubble's edge (top-left)
-        // Offset by half the button size so it overlaps the bubble boundary
-        let xPos: CGFloat = -5  // Negative to overlap left edge
-        let yPos: CGFloat = bounds.height - (buttonSize / 2) - 5  // Overlaps top edge
+        // Position button to sit on top-left of the circular bubble
+        // BubbleView is at (15, 0) with size 60x60 within container (75x75)
+        // Button should be at (8, 53) in container coordinates to overlap bubble edge
+        let xPos: CGFloat = 8  // Sits on left edge of bubble
+        let yPos: CGFloat = 53  // Sits on top edge of bubble
         
         let button = NSButton(frame: NSRect(x: xPos, y: yPos, width: buttonSize, height: buttonSize))
         button.title = "×"
@@ -399,8 +418,10 @@ class BubbleView: NSView {
         button.action = #selector(closeButtonClicked)
         button.alphaValue = 0  // Hidden by default
         
-        addSubview(button)
+        // Store reference so we can show/hide on hover
         self.closeButton = button
+        
+        return button
     }
     
     @objc private func closeButtonClicked() {

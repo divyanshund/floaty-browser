@@ -114,8 +114,8 @@ class PanelWindow: NSPanel {
     }
     
     override func performClose(_ sender: Any?) {
-        // Intercept standard close to collapse instead
-        panelDelegate?.panelWindowDidRequestCollapse(self)
+        // Red close button = completely delete bubble and panel
+        panelDelegate?.panelWindowDidRequestClose(self)
     }
     
     // Calculate position to show panel near bubble but fully visible on screen
@@ -232,6 +232,7 @@ extension PanelWindow: WebViewControllerDelegate {
 
 protocol PanelWindowDelegate: AnyObject {
     func panelWindowDidRequestCollapse(_ panel: PanelWindow)
+    func panelWindowDidRequestClose(_ panel: PanelWindow)
     func panelWindow(_ panel: PanelWindow, didRequestNewBubble url: String)
     func panelWindow(_ panel: PanelWindow, didUpdateURL url: String)
     func panelWindow(_ panel: PanelWindow, didUpdateFavicon image: NSImage)

@@ -308,6 +308,22 @@ extension WindowManager: PanelWindowDelegate {
         collapsePanel(panel)
     }
     
+    func panelWindowDidRequestClose(_ panel: PanelWindow) {
+        // Red close button = completely delete bubble and panel
+        print("🔴 FloatyBrowser: Closing panel and bubble completely")
+        
+        // Remove panel from dictionary and close it
+        panels.removeValue(forKey: panel.panelId)
+        panel.close()
+        
+        // Find and completely close the associated bubble
+        if let bubble = bubbles[panel.panelId] {
+            closeBubble(bubble)  // This removes from dictionary and persistence
+        }
+        
+        print("✅ FloatyBrowser: Panel and bubble closed successfully")
+    }
+    
     func panelWindow(_ panel: PanelWindow, didRequestNewBubble url: String) {
         // Create a new bubble near the current panel
         var newPosition = panel.frame.origin

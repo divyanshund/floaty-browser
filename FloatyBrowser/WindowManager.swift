@@ -93,7 +93,15 @@ class WindowManager: NSObject {
     }
     
     func collapsePanel(_ panel: PanelWindow) {
-        guard let bubble = bubbles[panel.panelId] else { return }
+        NSLog("🟢 collapsePanel() called - MINIMIZE to bubble")
+        NSLog("🟢 Panel ID: %@", panel.panelId.uuidString)
+        
+        guard let bubble = bubbles[panel.panelId] else {
+            NSLog("❌ ERROR: No bubble found for panel")
+            return
+        }
+        
+        NSLog("🟢 Found bubble, updating URL and collapsing")
         
         // Update bubble URL with current panel URL
         let currentURL = panel.getCurrentURL()
@@ -105,10 +113,12 @@ class WindowManager: NSObject {
             self?.panels.removeValue(forKey: panel.panelId)
             panel.close()
             
+            NSLog("🟢 Making bubble visible again")
             // Show bubble again
+            bubble.alphaValue = 1.0
             bubble.orderFront(nil)
             
-            print("✅ Collapsed panel \(panel.panelId) to bubble")
+            NSLog("✅ Collapsed panel to bubble successfully")
             self?.saveAllBubbles()
         }
     }

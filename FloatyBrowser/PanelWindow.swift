@@ -119,6 +119,8 @@ class PanelWindow: NSPanel {
     
     override func performClose(_ sender: Any?) {
         // Red close button = completely delete bubble and panel
+        NSLog("🔴 PanelWindow.performClose() called - sender: %@", String(describing: sender))
+        NSLog("🔴 This should ONLY be called by red traffic light button")
         panelDelegate?.panelWindowDidRequestClose(self)
     }
     

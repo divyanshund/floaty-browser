@@ -224,8 +224,14 @@ class WebViewController: NSViewController {
     }
     
     @objc private func collapseToBubble() {
-        // Tell the panel window to collapse
-        view.window?.performClose(nil)
+        // Tell the panel window to collapse (NOT close/delete)
+        NSLog("🔵 WebViewController: Collapse button clicked")
+        guard let panelWindow = view.window as? PanelWindow else {
+            NSLog("❌ Window is not a PanelWindow")
+            return
+        }
+        NSLog("🔵 Calling panelDelegate.panelWindowDidRequestCollapse")
+        panelWindow.panelDelegate?.panelWindowDidRequestCollapse(panelWindow)
     }
     
     func suspendWebView() {

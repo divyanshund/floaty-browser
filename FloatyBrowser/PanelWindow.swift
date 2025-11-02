@@ -14,6 +14,9 @@ class PanelWindow: NSPanel {
     private let minimumSize = NSSize(width: 300, height: 400)
     private let defaultSize = NSSize(width: 420, height: 600)
     
+    // Store the user's resized frame so we can restore it when showing again
+    private var savedFrame: NSRect?
+    
     weak var panelDelegate: PanelWindowDelegate?
     
     init(id: UUID, url: String, nearBubble bubbleFrame: NSRect) {
@@ -171,7 +174,24 @@ class PanelWindow: NSPanel {
         return webViewController.currentURL
     }
     
-    // Animate appearance
+    // Save current frame before hiding (so we can restore it later)
+    func saveFrameBeforeHiding() {
+        savedFrame = frame
+        NSLog("💾 Saving panel frame: %@", NSStringFromRect(frame))
+    }
+    
+    // Restore saved frame and show panel (for reused panels)
+    func restoreAndShow() {
+        if let saved = savedFrame {
+            NSLog("📐 Restoring saved frame: %@", NSStringFromRect(saved))
+            setFrame(saved, display: true)
+        }
+        alphaValue = 1.0
+        makeKeyAndOrderFront(nil)
+        makeFirstResponder(webViewController.view)
+    }
+    
+    // Animate appearance (for new panels only)
     func animateIn() {
         alphaValue = 0
         let scale: CGFloat = 0.3

@@ -72,12 +72,19 @@ class WindowManager: NSObject {
     }
     
     func expandBubble(_ bubble: BubbleWindow) {
-        guard panels[bubble.bubbleId] == nil else {
-            // Already expanded
-            panels[bubble.bubbleId]?.orderFront(nil)
+        // Check if panel already exists (was just hidden, not destroyed)
+        if let existingPanel = panels[bubble.bubbleId] {
+            NSLog("♻️ Panel already exists - reusing it (website never stopped!)")
+            
+            // Hide bubble first
+            bubble.orderOut(nil)
+            
+            // Restore the panel to its saved size and show it
+            existingPanel.restoreAndShow()
             return
         }
         
+        NSLog("🆕 Creating new panel for bubble")
         let panel = PanelWindow(id: bubble.bubbleId, url: bubble.currentURL, nearBubble: bubble.frame)
         panel.panelDelegate = self
         
@@ -87,13 +94,13 @@ class WindowManager: NSObject {
         bubble.orderOut(nil)
         
         panel.makeKeyAndOrderFront(nil)
-        panel.animateIn()
+        panel.animateIn()  // Only animate for new panels
         
-        print("✅ Expanded bubble \(bubble.bubbleId) to panel")
+        print("✅ Expanded bubble to new panel")
     }
     
     func collapsePanel(_ panel: PanelWindow) {
-        NSLog("🟢 collapsePanel() called - MINIMIZE to bubble")
+        NSLog("🟢 collapsePanel() called - MINIMIZE to bubble (keep website running)")
         NSLog("🟢 Panel ID: %@", panel.panelId.uuidString)
         
         guard let bubble = bubbles[panel.panelId] else {
@@ -109,16 +116,23 @@ class WindowManager: NSObject {
             bubble.updateURL(currentURL)
         }
         
+        // CRITICAL: Save the panel's current frame BEFORE animating out
+        panel.saveFrameBeforeHiding()
+        
         panel.animateOut { [weak self] in
-            self?.panels.removeValue(forKey: panel.panelId)
-            panel.close()
+            // DON'T remove panel from dictionary - keep it alive!
+            // DON'T close panel - just hide it!
+            // This keeps WKWebView running in background
+            
+            NSLog("🟢 Hiding panel (keeping website alive in background)")
+            panel.orderOut(nil)  // Hide the window
             
             NSLog("🟢 Making bubble visible again")
             // Show bubble again
             bubble.alphaValue = 1.0
             bubble.orderFront(nil)
             
-            NSLog("✅ Collapsed panel to bubble successfully")
+            NSLog("✅ Panel hidden, bubble visible, website still running!")
             self?.saveAllBubbles()
         }
     }

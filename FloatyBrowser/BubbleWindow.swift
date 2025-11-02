@@ -299,9 +299,13 @@ class BubbleView: NSView {
     private func setupView() {
         wantsLayer = true
         
-        // Circular mask
+        // Allow subviews (like close button) to extend beyond bounds
+        // But keep the layer masked for circular appearance
+        clipsToBounds = false
+        
+        // Circular mask for the layer
         layer?.cornerRadius = bounds.width / 2
-        layer?.masksToBounds = true  // Clip to bounds for inner glow
+        layer?.masksToBounds = true  // Clip layer content to circular shape
         
         // Background gradient
         let gradientLayer = CAGradientLayer()
@@ -367,7 +371,13 @@ class BubbleView: NSView {
     private func setupCloseButton() {
         // Create close button (X) that appears on hover - 20% larger
         let buttonSize: CGFloat = 22  // Increased from 18 (20% larger)
-        let button = NSButton(frame: NSRect(x: 2, y: bounds.height - 24, width: buttonSize, height: buttonSize))
+        
+        // Position button to sit on top of bubble's edge (top-left)
+        // Offset by half the button size so it overlaps the bubble boundary
+        let xPos: CGFloat = -5  // Negative to overlap left edge
+        let yPos: CGFloat = bounds.height - (buttonSize / 2) - 5  // Overlaps top edge
+        
+        let button = NSButton(frame: NSRect(x: xPos, y: yPos, width: buttonSize, height: buttonSize))
         button.title = "×"
         button.font = NSFont.systemFont(ofSize: 20, weight: .semibold)  // Larger, bolder font
         button.bezelStyle = .circular

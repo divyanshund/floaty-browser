@@ -62,6 +62,9 @@ class PanelWindow: NSPanel {
         isRestorable = false
         restorationClass = nil
         
+        // Set self as delegate to intercept close button
+        delegate = self
+        
         // Make sure the window becomes key to receive keyboard events
         makeKeyAndOrderFront(nil)
     }
@@ -231,6 +234,22 @@ extension PanelWindow: WebViewControllerDelegate {
     
     func webViewController(_ controller: WebViewController, didUpdateFavicon image: NSImage) {
         panelDelegate?.panelWindow(self, didUpdateFavicon: image)
+    }
+}
+
+// MARK: - NSWindowDelegate
+
+extension PanelWindow: NSWindowDelegate {
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        // CRITICAL: This is called when user clicks RED close button (traffic light)
+        NSLog("🔴🔴🔴 windowShouldClose called - RED BUTTON CLICKED")
+        NSLog("🔴 Calling panelWindowDidRequestClose to DELETE bubble")
+        
+        // Call our custom close logic
+        panelDelegate?.panelWindowDidRequestClose(self)
+        
+        // Return false to prevent default close behavior (we handle it ourselves)
+        return false
     }
 }
 

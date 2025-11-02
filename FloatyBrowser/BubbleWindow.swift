@@ -392,9 +392,9 @@ class BubbleView: NSView {
         
         // Position button to sit on top-left of the circular bubble
         // BubbleView is at (15, 0) with size 60x60 within container (75x75)
-        // Button should be at (8, 53) in container coordinates to overlap bubble edge
-        let xPos: CGFloat = 8  // Sits on left edge of bubble
-        let yPos: CGFloat = 53  // Sits on top edge of bubble
+        // Position so button overlaps the bubble's edge nicely
+        let xPos: CGFloat = 12  // Overlaps left edge of bubble
+        let yPos: CGFloat = 50  // Overlaps top edge of bubble
         
         let button = NSButton(frame: NSRect(x: xPos, y: yPos, width: buttonSize, height: buttonSize))
         button.title = "×"

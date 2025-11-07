@@ -12,15 +12,18 @@ class WebViewController: NSViewController {
     private var webView: WKWebView!
     private let trafficLightArea = NSVisualEffectView()
     private let toolbar = NSVisualEffectView()
+    private let minimizeToBubbleButton = NSButton()
     private let backButton = NSButton()
     private let forwardButton = NSButton()
     private let reloadButton = NSButton()
-    private let collapseToBubbleButton = NSButton()
     private let urlField = NSTextField()
     private let newBubbleButton = NSButton()
     private var progressIndicator: NSProgressIndicator!
     
     weak var delegate: WebViewControllerDelegate?
+    
+    // UserDefaults key for tracking first-time minimize
+    private let hasMinimizedBeforeKey = "hasMinimizedToBubbleBefore"
     
     private let webConfiguration: WKWebViewConfiguration = {
         let config = WKWebViewConfiguration()
@@ -85,7 +88,40 @@ class WebViewController: NSViewController {
         trafficLightArea.blendingMode = .behindWindow
         trafficLightArea.state = .active
         
+        // Add minimize to bubble button
+        setupMinimizeToBubbleButton()
+        
         view.addSubview(trafficLightArea)
+    }
+    
+    private func setupMinimizeToBubbleButton() {
+        let hasMinimizedBefore = UserDefaults.standard.bool(forKey: hasMinimizedBeforeKey)
+        
+        // Configure button
+        minimizeToBubbleButton.isBordered = false
+        minimizeToBubbleButton.bezelStyle = .inline
+        minimizeToBubbleButton.target = self
+        minimizeToBubbleButton.action = #selector(collapseToBubble)
+        
+        // Set title based on whether user has minimized before
+        if hasMinimizedBefore {
+            minimizeToBubbleButton.title = "○"
+            minimizeToBubbleButton.frame = NSRect(x: 72, y: 5, width: 20, height: 20)
+        } else {
+            minimizeToBubbleButton.title = "○ Minimize to Bubble"
+            minimizeToBubbleButton.frame = NSRect(x: 72, y: 5, width: 160, height: 20)
+        }
+        
+        // Style the button
+        minimizeToBubbleButton.font = NSFont.systemFont(ofSize: 12)
+        minimizeToBubbleButton.contentTintColor = .secondaryLabelColor
+        
+        // Add tooltip for when text is hidden
+        if hasMinimizedBefore {
+            minimizeToBubbleButton.toolTip = "Minimize to Bubble"
+        }
+        
+        trafficLightArea.addSubview(minimizeToBubbleButton)
     }
     
     private func setupToolbar() {
@@ -134,19 +170,9 @@ class WebViewController: NSViewController {
         reloadButton.target = self
         reloadButton.action = #selector(reload)
         toolbar.addSubview(reloadButton)
-        xOffset += buttonWidth + 4
-        
-        // Collapse to bubble button
-        collapseToBubbleButton.frame = NSRect(x: xOffset, y: buttonY, width: buttonWidth, height: buttonHeight)
-        collapseToBubbleButton.title = "○"  // Circle symbol for bubble
-        collapseToBubbleButton.bezelStyle = .roundRect
-        collapseToBubbleButton.target = self
-        collapseToBubbleButton.action = #selector(collapseToBubble)
-        collapseToBubbleButton.toolTip = "Collapse to bubble"
-        toolbar.addSubview(collapseToBubbleButton)
         xOffset += buttonWidth + 10
         
-        // URL field - calculate remaining space
+        // URL field - calculate remaining space (no collapse button in toolbar anymore)
         let rightButtonsWidth: CGFloat = 42  // New bubble button + margin
         let urlFieldWidth = view.bounds.width - xOffset - rightButtonsWidth
         urlField.frame = NSRect(x: xOffset, y: buttonY, width: urlFieldWidth, height: buttonHeight)
@@ -252,12 +278,35 @@ class WebViewController: NSViewController {
     @objc private func collapseToBubble() {
         // Tell the panel window to collapse (NOT close/delete)
         NSLog("🔵 WebViewController: Collapse button clicked")
+        
+        // Check if this is the first time user is minimizing
+        let hasMinimizedBefore = UserDefaults.standard.bool(forKey: hasMinimizedBeforeKey)
+        if !hasMinimizedBefore {
+            // First time! Update button to show only icon
+            UserDefaults.standard.set(true, forKey: hasMinimizedBeforeKey)
+            animateButtonToIconOnly()
+        }
+        
         guard let panelWindow = view.window as? PanelWindow else {
             NSLog("❌ Window is not a PanelWindow")
             return
         }
         NSLog("🔵 Calling panelDelegate.panelWindowDidRequestCollapse")
         panelWindow.panelDelegate?.panelWindowDidRequestCollapse(panelWindow)
+    }
+    
+    private func animateButtonToIconOnly() {
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.3
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            
+            // Animate the button size and title
+            minimizeToBubbleButton.animator().frame = NSRect(x: 72, y: 5, width: 20, height: 20)
+        }, completionHandler: { [weak self] in
+            // After animation, update the title
+            self?.minimizeToBubbleButton.title = "○"
+            self?.minimizeToBubbleButton.toolTip = "Minimize to Bubble"
+        })
     }
     
     func suspendWebView() {

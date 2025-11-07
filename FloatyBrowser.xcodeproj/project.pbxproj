@@ -13,10 +13,21 @@
 		1A0007 /* PanelWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0008 /* PanelWindow.swift */; };
 		1A0009 /* WebViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0010 /* WebViewController.swift */; };
 		1A0011 /* PersistenceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0012 /* PersistenceManager.swift */; };
+		1A0020 /* FloatyBrowserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0021 /* FloatyBrowserTests.swift */; };
 		1A0050 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0051 /* main.swift */; };
 		1A0052 /* snake_game.html in Resources */ = {isa = PBXBuildFile; fileRef = 1A0053 /* snake_game.html */; };
-		1A0020 /* FloatyBrowserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0021 /* FloatyBrowserTests.swift */; };
+		E89C7BC52EBE131B006F99F2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E89C7BC42EBE131B006F99F2 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		1A0035 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1A0033 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1A0019;
+			remoteInfo = FloatyBrowser;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		1A0002 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -27,10 +38,11 @@
 		1A0012 /* PersistenceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceManager.swift; sourceTree = "<group>"; };
 		1A0013 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		1A0014 /* FloatyBrowser.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FloatyBrowser.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		1A0051 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
-		1A0053 /* snake_game.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = snake_game.html; sourceTree = "<group>"; };
 		1A0021 /* FloatyBrowserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatyBrowserTests.swift; sourceTree = "<group>"; };
 		1A0022 /* FloatyBrowserTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FloatyBrowserTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		1A0051 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		1A0053 /* snake_game.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = snake_game.html; sourceTree = "<group>"; };
+		E89C7BC42EBE131B006F99F2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -63,6 +75,7 @@
 		1A0017 /* FloatyBrowser */ = {
 			isa = PBXGroup;
 			children = (
+				E89C7BC42EBE131B006F99F2 /* Assets.xcassets */,
 				1A0051 /* main.swift */,
 				1A0002 /* AppDelegate.swift */,
 				1A0004 /* WindowManager.swift */,
@@ -174,6 +187,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E89C7BC52EBE131B006F99F2 /* Assets.xcassets in Resources */,
 				1A0052 /* snake_game.html in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -219,16 +233,6 @@
 			targetProxy = 1A0035 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
-
-/* Begin PBXContainerItemProxy section */
-		1A0035 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 1A0033 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 1A0019;
-			remoteInfo = FloatyBrowser;
-		};
-/* End PBXContainerItemProxy section */
 
 /* Begin XCBuildConfiguration section */
 		1A0036 /* Debug */ = {
@@ -473,4 +477,3 @@
 	};
 	rootObject = 1A0033 /* Project object */;
 }
-

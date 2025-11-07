@@ -300,6 +300,12 @@ class BubbleView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
     
+    // CRITICAL: Allow first click to trigger action, not just activate window
+    // Without this, first click on app launch just activates, requiring a second click
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        return true
+    }
+    
     private func setupTrackingArea() {
         let trackingArea = NSTrackingArea(
             rect: bounds,

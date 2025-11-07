@@ -239,7 +239,8 @@ class WindowManager: NSObject {
         
         print("ℹ️  Found \(savedStates.count) saved bubble(s)")
         for state in savedStates {
-            let validatedPosition = PersistenceManager.shared.validatePosition(state.position, screenIndex: state.screenIndex)
+            // Always position bubbles on the right side, ignoring saved positions
+            let validatedPosition = calculateNewBubblePosition()
             let bubble = BubbleWindow(id: state.id, url: state.url, position: validatedPosition)
             bubble.bubbleDelegate = self
             bubbles[state.id] = bubble
@@ -367,12 +368,8 @@ extension WindowManager: PanelWindowDelegate {
     }
     
     func panelWindow(_ panel: PanelWindow, didRequestNewBubble url: String) {
-        // Create a new bubble near the current panel
-        var newPosition = panel.frame.origin
-        newPosition.x += 70
-        newPosition.y -= 70
-        
-        _ = createBubble(url: url, position: newPosition)
+        // Create a new bubble on the rightmost side of the screen
+        _ = createBubble(url: url)
     }
     
     func panelWindow(_ panel: PanelWindow, didUpdateURL url: String) {

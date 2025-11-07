@@ -10,7 +10,8 @@ import WebKit
 
 class WebViewController: NSViewController {
     private var webView: WKWebView!
-    private let toolbar = NSView()
+    private let trafficLightArea = NSVisualEffectView()
+    private let toolbar = NSVisualEffectView()
     private let backButton = NSButton()
     private let forwardButton = NSButton()
     private let reloadButton = NSButton()
@@ -63,6 +64,7 @@ class WebViewController: NSViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        setupTrafficLightArea()
         setupToolbar()
         setupWebView()
     }
@@ -73,11 +75,32 @@ class WebViewController: NSViewController {
         view.window?.makeFirstResponder(webView)
     }
     
+    private func setupTrafficLightArea() {
+        let trafficLightHeight: CGFloat = 30
+        trafficLightArea.frame = NSRect(x: 0, y: view.bounds.height - trafficLightHeight, width: view.bounds.width, height: trafficLightHeight)
+        trafficLightArea.autoresizingMask = [.width, .minYMargin]
+        
+        // Configure vibrancy effect
+        trafficLightArea.material = .titlebar
+        trafficLightArea.blendingMode = .behindWindow
+        trafficLightArea.state = .active
+        
+        view.addSubview(trafficLightArea)
+    }
+    
     private func setupToolbar() {
-        toolbar.frame = NSRect(x: 0, y: view.bounds.height - 40, width: view.bounds.width, height: 40)
+        // Add space for traffic lights (standard macOS titlebar height is ~28px, we'll use 30 for comfort)
+        let trafficLightHeight: CGFloat = 30
+        let toolbarHeight: CGFloat = 40
+        let totalTopHeight = trafficLightHeight + toolbarHeight
+        
+        toolbar.frame = NSRect(x: 0, y: view.bounds.height - totalTopHeight, width: view.bounds.width, height: toolbarHeight)
         toolbar.autoresizingMask = [.width, .minYMargin]
-        toolbar.wantsLayer = true
-        toolbar.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
+        
+        // Configure vibrancy effect
+        toolbar.material = .headerView
+        toolbar.blendingMode = .behindWindow
+        toolbar.state = .active
         
         let buttonWidth: CGFloat = 30
         let buttonHeight: CGFloat = 24
@@ -146,8 +169,11 @@ class WebViewController: NSViewController {
     }
     
     private func setupWebView() {
+        // Total top space = traffic lights (30px) + toolbar (40px) = 70px
+        let totalTopSpace: CGFloat = 70
+        
         webView = WKWebView(frame: .zero, configuration: webConfiguration)
-        webView.frame = NSRect(x: 0, y: 0, width: view.bounds.width, height: view.bounds.height - 40)
+        webView.frame = NSRect(x: 0, y: 0, width: view.bounds.width, height: view.bounds.height - totalTopSpace)
         webView.autoresizingMask = [.width, .height]
         webView.navigationDelegate = self
         webView.uiDelegate = self
@@ -158,11 +184,11 @@ class WebViewController: NSViewController {
         // Set custom user agent to identify as desktop browser
         webView.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15 FloatyBrowser/1.0"
         
-        // Add progress indicator
+        // Add progress indicator (position it just below the toolbar)
         progressIndicator = NSProgressIndicator()
         progressIndicator.style = .bar
         progressIndicator.isIndeterminate = false
-        progressIndicator.frame = NSRect(x: 0, y: view.bounds.height - 42, width: view.bounds.width, height: 2)
+        progressIndicator.frame = NSRect(x: 0, y: view.bounds.height - totalTopSpace - 2, width: view.bounds.width, height: 2)
         progressIndicator.autoresizingMask = [.width, .minYMargin]
         progressIndicator.isHidden = true
         

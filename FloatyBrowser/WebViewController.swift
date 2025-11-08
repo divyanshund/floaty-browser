@@ -103,17 +103,23 @@ class WebViewController: NSViewController {
         minimizeToBubbleButton.target = self
         minimizeToBubbleButton.action = #selector(collapseToBubble)
         
-        // Set title based on whether user has minimized before
+        // Set title/image based on whether user has minimized before
         if hasMinimizedBefore {
-            minimizeToBubbleButton.title = "○"
-            minimizeToBubbleButton.frame = NSRect(x: 72, y: 5, width: 20, height: 20)
+            // Icon only - modern SF Symbol
+            minimizeToBubbleButton.image = NSImage(systemSymbolName: "circle.fill", accessibilityDescription: "Minimize to Bubble")
+            minimizeToBubbleButton.imagePosition = .imageLeading
+            minimizeToBubbleButton.title = ""
+            minimizeToBubbleButton.frame = NSRect(x: 72, y: 5, width: 24, height: 20)
         } else {
-            minimizeToBubbleButton.title = "○ Minimize to Bubble"
+            // Icon + text for first-time users
+            minimizeToBubbleButton.image = NSImage(systemSymbolName: "circle.fill", accessibilityDescription: "Minimize to Bubble")
+            minimizeToBubbleButton.imagePosition = .imageLeading
+            minimizeToBubbleButton.title = "Minimize to Bubble"
             minimizeToBubbleButton.frame = NSRect(x: 72, y: 5, width: 160, height: 20)
         }
         
         // Style the button
-        minimizeToBubbleButton.font = NSFont.systemFont(ofSize: 12)
+        minimizeToBubbleButton.font = NSFont.systemFont(ofSize: 11)
         minimizeToBubbleButton.contentTintColor = .secondaryLabelColor
         
         // Add tooltip for when text is hidden
@@ -127,7 +133,7 @@ class WebViewController: NSViewController {
     private func setupToolbar() {
         // Add space for traffic lights (standard macOS titlebar height is ~28px, we'll use 30 for comfort)
         let trafficLightHeight: CGFloat = 30
-        let toolbarHeight: CGFloat = 40
+        let toolbarHeight: CGFloat = 44  // Slightly taller for better spacing
         let totalTopHeight = trafficLightHeight + toolbarHeight
         
         toolbar.frame = NSRect(x: 0, y: view.bounds.height - totalTopHeight, width: view.bounds.width, height: toolbarHeight)
@@ -138,65 +144,117 @@ class WebViewController: NSViewController {
         toolbar.blendingMode = .behindWindow
         toolbar.state = .active
         
-        let buttonWidth: CGFloat = 30
-        let buttonHeight: CGFloat = 24
-        let buttonY: CGFloat = 8
-        var xOffset: CGFloat = 8
+        let buttonSize: CGFloat = 28  // Modern square buttons
+        let buttonY: CGFloat = (toolbarHeight - buttonSize) / 2  // Center vertically
+        var xOffset: CGFloat = 12  // More generous left margin
         
-        // Back button
-        backButton.frame = NSRect(x: xOffset, y: buttonY, width: buttonWidth, height: buttonHeight)
-        backButton.title = "◀"
-        backButton.bezelStyle = .roundRect
+        // Back button - modern SF Symbol style
+        backButton.frame = NSRect(x: xOffset, y: buttonY, width: buttonSize, height: buttonSize)
+        backButton.image = NSImage(systemSymbolName: "chevron.left", accessibilityDescription: "Go Back")
+        backButton.imagePosition = .imageOnly
+        backButton.isBordered = false
+        backButton.bezelStyle = .regularSquare
+        backButton.contentTintColor = .secondaryLabelColor
         backButton.target = self
         backButton.action = #selector(goBack)
         backButton.isEnabled = false
+        backButton.toolTip = "Go Back"
+        styleModernButton(backButton)
         toolbar.addSubview(backButton)
-        xOffset += buttonWidth + 4
+        xOffset += buttonSize + 2
         
         // Forward button
-        forwardButton.frame = NSRect(x: xOffset, y: buttonY, width: buttonWidth, height: buttonHeight)
-        forwardButton.title = "▶"
-        forwardButton.bezelStyle = .roundRect
+        forwardButton.frame = NSRect(x: xOffset, y: buttonY, width: buttonSize, height: buttonSize)
+        forwardButton.image = NSImage(systemSymbolName: "chevron.right", accessibilityDescription: "Go Forward")
+        forwardButton.imagePosition = .imageOnly
+        forwardButton.isBordered = false
+        forwardButton.bezelStyle = .regularSquare
+        forwardButton.contentTintColor = .secondaryLabelColor
         forwardButton.target = self
         forwardButton.action = #selector(goForward)
         forwardButton.isEnabled = false
+        forwardButton.toolTip = "Go Forward"
+        styleModernButton(forwardButton)
         toolbar.addSubview(forwardButton)
-        xOffset += buttonWidth + 4
+        xOffset += buttonSize + 8
         
         // Reload button
-        reloadButton.frame = NSRect(x: xOffset, y: buttonY, width: buttonWidth, height: buttonHeight)
-        reloadButton.title = "⟳"
-        reloadButton.bezelStyle = .roundRect
+        reloadButton.frame = NSRect(x: xOffset, y: buttonY, width: buttonSize, height: buttonSize)
+        reloadButton.image = NSImage(systemSymbolName: "arrow.clockwise", accessibilityDescription: "Reload")
+        reloadButton.imagePosition = .imageOnly
+        reloadButton.isBordered = false
+        reloadButton.bezelStyle = .regularSquare
+        reloadButton.contentTintColor = .secondaryLabelColor
         reloadButton.target = self
         reloadButton.action = #selector(reload)
+        reloadButton.toolTip = "Reload Page"
+        styleModernButton(reloadButton)
         toolbar.addSubview(reloadButton)
-        xOffset += buttonWidth + 10
+        xOffset += buttonSize + 12
         
-        // URL field - calculate remaining space (no collapse button in toolbar anymore)
-        let rightButtonsWidth: CGFloat = 42  // New bubble button + margin
+        // URL field - modern rounded style
+        let rightButtonsWidth: CGFloat = 50  // New bubble button + margin
         let urlFieldWidth = view.bounds.width - xOffset - rightButtonsWidth
-        urlField.frame = NSRect(x: xOffset, y: buttonY, width: urlFieldWidth, height: buttonHeight)
+        let urlFieldHeight: CGFloat = 28
+        let urlFieldY = (toolbarHeight - urlFieldHeight) / 2
+        
+        urlField.frame = NSRect(x: xOffset, y: urlFieldY, width: urlFieldWidth, height: urlFieldHeight)
         urlField.autoresizingMask = [.width]
-        urlField.placeholderString = "Enter URL..."
+        urlField.placeholderString = "Enter URL or search..."
         urlField.delegate = self
+        urlField.font = NSFont.systemFont(ofSize: 13)
+        
+        // Modern URL field styling
+        urlField.wantsLayer = true
+        urlField.layer?.cornerRadius = 6
+        urlField.layer?.borderWidth = 0.5
+        urlField.layer?.borderColor = NSColor.separatorColor.cgColor
+        urlField.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.5)
+        urlField.focusRingType = .none
+        
+        // Add padding to URL field
+        if let cell = urlField.cell as? NSTextFieldCell {
+            cell.usesSingleLineMode = true
+            cell.wraps = false
+            cell.isScrollable = true
+        }
+        
         toolbar.addSubview(urlField)
         
-        // New bubble button (right-aligned)
-        newBubbleButton.frame = NSRect(x: view.bounds.width - 42, y: buttonY, width: 34, height: buttonHeight)
+        // New bubble button (right-aligned) - modern style
+        newBubbleButton.frame = NSRect(x: view.bounds.width - 44, y: buttonY, width: buttonSize, height: buttonSize)
         newBubbleButton.autoresizingMask = [.minXMargin]
-        newBubbleButton.title = "+"
-        newBubbleButton.bezelStyle = .roundRect
+        newBubbleButton.image = NSImage(systemSymbolName: "plus.circle", accessibilityDescription: "New Bubble")
+        newBubbleButton.imagePosition = .imageOnly
+        newBubbleButton.isBordered = false
+        newBubbleButton.bezelStyle = .regularSquare
+        newBubbleButton.contentTintColor = .controlAccentColor
         newBubbleButton.target = self
         newBubbleButton.action = #selector(createNewBubble)
         newBubbleButton.toolTip = "Pop out to new bubble"
+        styleModernButton(newBubbleButton)
         toolbar.addSubview(newBubbleButton)
         
         view.addSubview(toolbar)
     }
     
+    private func styleModernButton(_ button: NSButton) {
+        button.wantsLayer = true
+        button.layer?.cornerRadius = 6
+        
+        // Add hover effect using tracking area
+        let trackingArea = NSTrackingArea(
+            rect: button.bounds,
+            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            owner: self,
+            userInfo: ["button": button]
+        )
+        button.addTrackingArea(trackingArea)
+    }
+    
     private func setupWebView() {
-        // Total top space = traffic lights (30px) + toolbar (40px) = 70px
-        let totalTopSpace: CGFloat = 70
+        // Total top space = traffic lights (30px) + toolbar (44px) = 74px
+        let totalTopSpace: CGFloat = 74
         
         webView = WKWebView(frame: .zero, configuration: webConfiguration)
         webView.frame = NSRect(x: 0, y: 0, width: view.bounds.width, height: view.bounds.height - totalTopSpace)
@@ -300,11 +358,11 @@ class WebViewController: NSViewController {
             context.duration = 0.3
             context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
             
-            // Animate the button size and title
-            minimizeToBubbleButton.animator().frame = NSRect(x: 72, y: 5, width: 20, height: 20)
+            // Animate the button size to icon-only
+            minimizeToBubbleButton.animator().frame = NSRect(x: 72, y: 5, width: 24, height: 20)
         }, completionHandler: { [weak self] in
-            // After animation, update the title
-            self?.minimizeToBubbleButton.title = "○"
+            // After animation, remove the title (keep icon only)
+            self?.minimizeToBubbleButton.title = ""
             self?.minimizeToBubbleButton.toolTip = "Minimize to Bubble"
         })
     }

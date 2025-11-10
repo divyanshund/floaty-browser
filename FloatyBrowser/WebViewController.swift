@@ -483,13 +483,6 @@ class WebViewController: NSViewController {
 // MARK: - NSTextFieldDelegate
 
 extension WebViewController: NSTextFieldDelegate {
-    func controlTextDidBeginEditing(_ obj: Notification) {
-        // Select all text when user clicks in the URL field
-        if let textField = obj.object as? NSTextField, textField == urlField {
-            textField.currentEditor()?.selectAll(nil)
-        }
-    }
-    
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
         if commandSelector == #selector(NSResponder.insertNewline(_:)) {
             // User pressed Enter

@@ -8,6 +8,36 @@
 import Cocoa
 import WebKit
 
+// Custom text field with browser-style select-all behavior
+// Selects all text on first click, allows normal cursor positioning while editing
+class BrowserStyleTextField: NSTextField {
+    private var isCurrentlyEditing = false
+    
+    override func mouseDown(with event: NSEvent) {
+        let wasEditing = isCurrentlyEditing
+        
+        // Call super to handle the click
+        super.mouseDown(with: event)
+        
+        // Check if we're now editing
+        if currentEditor() != nil {
+            isCurrentlyEditing = true
+            
+            // If this is the first click (wasn't editing before), select all
+            if !wasEditing {
+                if let fieldEditor = currentEditor() as? NSTextView {
+                    fieldEditor.selectedRange = NSRange(location: 0, length: fieldEditor.string.count)
+                }
+            }
+        }
+    }
+    
+    override func textDidEndEditing(_ notification: Notification) {
+        super.textDidEndEditing(notification)
+        isCurrentlyEditing = false
+    }
+}
+
 class WebViewController: NSViewController {
     private var webView: WKWebView!
     private let trafficLightArea = NSVisualEffectView()
@@ -16,7 +46,7 @@ class WebViewController: NSViewController {
     private let backButton = NSButton()
     private let forwardButton = NSButton()
     private let reloadButton = NSButton()
-    private let urlField = NSTextField()
+    private let urlField = BrowserStyleTextField()
     private let newBubbleButton = NSButton()
     private var progressIndicator: NSProgressIndicator!
     

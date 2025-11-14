@@ -179,6 +179,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         alert.runModal()
     }
     
+    @objc private func showPreferences() {
+        let alert = NSAlert()
+        alert.messageText = "Preferences"
+        alert.informativeText = "Preferences panel coming soon!\n\nThis will allow you to customize:\n• Default homepage\n• Bubble appearance\n• Keyboard shortcuts\n• And more..."
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
+    
     // MARK: - Main Menu Setup
     
     private func setupMainMenu() {
@@ -192,6 +201,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Quit FloatyBrowser", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appMenuItem.submenu = appMenu
+        
+        // File Menu
+        let fileMenuItem = NSMenuItem()
+        mainMenu.addItem(fileMenuItem)
+        let fileMenu = NSMenu(title: "File")
+        fileMenu.delegate = self
+        
+        let newBubbleItem = NSMenuItem(title: "New Bubble", action: #selector(createNewBubble), keyEquivalent: "n")
+        newBubbleItem.target = self
+        fileMenu.addItem(newBubbleItem)
+        
+        fileMenu.addItem(.separator())
+        
+        // Open Bubbles submenu - will be dynamically populated
+        let openBubblesItem = NSMenuItem(title: "Open Bubbles", action: nil, keyEquivalent: "")
+        let openBubblesMenu = NSMenu()
+        openBubblesMenu.delegate = self
+        openBubblesItem.submenu = openBubblesMenu
+        fileMenu.addItem(openBubblesItem)
+        
+        fileMenu.addItem(.separator())
+        
+        let preferencesItem = NSMenuItem(title: "Preferences...", action: #selector(showPreferences), keyEquivalent: ",")
+        preferencesItem.target = self
+        fileMenu.addItem(preferencesItem)
+        
+        fileMenuItem.submenu = fileMenu
         
         // Edit Menu (CRITICAL for keyboard shortcuts)
         let editMenuItem = NSMenuItem()
@@ -221,6 +257,38 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.mainMenu = mainMenu
         
         NSLog("✅ FloatyBrowser: Main menu setup complete - keyboard shortcuts enabled")
+    }
+}
+
+// MARK: - NSMenuDelegate
+
+extension AppDelegate: NSMenuDelegate {
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        // Check if this is the Open Bubbles submenu
+        if menu.title == "" && menu.supermenu?.title == "File" {
+            // Clear existing items
+            menu.removeAllItems()
+            
+            // Populate with current bubbles
+            let bubbleCount = windowManager.getBubbleCount()
+            
+            if bubbleCount > 0 {
+                let bubbleURLs = windowManager.getAllBubbleURLs()
+                for (index, urlString) in bubbleURLs.enumerated() {
+                    let displayURL = urlString.replacingOccurrences(of: "https://", with: "").replacingOccurrences(of: "http://", with: "")
+                    let truncated = displayURL.count > 50 ? String(displayURL.prefix(47)) + "..." : displayURL
+                    
+                    let item = NSMenuItem(title: truncated, action: #selector(focusBubbleAtIndex(_:)), keyEquivalent: "")
+                    item.target = self
+                    item.tag = index
+                    menu.addItem(item)
+                }
+            } else {
+                let item = NSMenuItem(title: "No open bubbles", action: nil, keyEquivalent: "")
+                item.isEnabled = false
+                menu.addItem(item)
+            }
+        }
     }
 }
 

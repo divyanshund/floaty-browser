@@ -40,6 +40,8 @@
 	<string>Floaty Browser needs accessibility permission to enable global keyboard shortcuts.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2025. All rights reserved.</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.productivity</string>
 </dict>
 </plist>
 

@@ -16,6 +16,8 @@
 		1A0020 /* FloatyBrowserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0021 /* FloatyBrowserTests.swift */; };
 		1A0050 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0051 /* main.swift */; };
 		1A0052 /* snake_game.html in Resources */ = {isa = PBXBuildFile; fileRef = 1A0053 /* snake_game.html */; };
+		1A0060 /* OnboardingWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0061 /* OnboardingWindowController.swift */; };
+		1A0062 /* OnboardingViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0063 /* OnboardingViewController.swift */; };
 		E89C7BC52EBE131B006F99F2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E89C7BC42EBE131B006F99F2 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -42,6 +44,8 @@
 		1A0022 /* FloatyBrowserTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FloatyBrowserTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A0051 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		1A0053 /* snake_game.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = snake_game.html; sourceTree = "<group>"; };
+		1A0061 /* OnboardingWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingWindowController.swift; sourceTree = "<group>"; };
+		1A0063 /* OnboardingViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingViewController.swift; sourceTree = "<group>"; };
 		E89C7BC42EBE131B006F99F2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -83,6 +87,8 @@
 				1A0008 /* PanelWindow.swift */,
 				1A0010 /* WebViewController.swift */,
 				1A0012 /* PersistenceManager.swift */,
+				1A0061 /* OnboardingWindowController.swift */,
+				1A0063 /* OnboardingViewController.swift */,
 				1A0053 /* snake_game.html */,
 				1A0013 /* Info.plist */,
 			);
@@ -213,6 +219,8 @@
 				1A0007 /* PanelWindow.swift in Sources */,
 				1A0009 /* WebViewController.swift in Sources */,
 				1A0011 /* PersistenceManager.swift in Sources */,
+				1A0060 /* OnboardingWindowController.swift in Sources */,
+				1A0062 /* OnboardingViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

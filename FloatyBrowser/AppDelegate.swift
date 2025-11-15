@@ -11,6 +11,10 @@ import Cocoa
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private let windowManager = WindowManager.shared
+    private var onboardingWindowController: OnboardingWindowController?
+    
+    // UserDefaults key
+    private let hasCompletedOnboardingKey = "hasCompletedOnboarding"
     
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         NSLog("🚀 FloatyBrowser: App launched - starting initialization")
@@ -28,18 +32,64 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // This prevents the first click being consumed by app activation
         NSApp.activate(ignoringOtherApps: true)
         
+        // Listen for onboarding completion
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(onboardingCompleted),
+            name: .onboardingCompleted,
+            object: nil
+        )
+        
         // Small delay to ensure app is fully activated and ready to receive clicks
         // This prevents the "first click doesn't work" issue on launch
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
             guard let self = self else { return }
             
-            NSLog("📍 FloatyBrowser: App fully activated - creating windows")
+            NSLog("📍 FloatyBrowser: App fully activated")
             
-            // NOW initialize WindowManager and create bubbles
-            self.windowManager.initialize()
-            
-            NSLog("✅ FloatyBrowser: Ready - bubbles are now clickable")
+            // Check if first launch
+            if self.isFirstLaunch() {
+                NSLog("🌟 FloatyBrowser: First launch - showing onboarding")
+                self.showOnboarding()
+            } else {
+                NSLog("📍 FloatyBrowser: Returning user - starting normally")
+                self.startNormalApp()
+            }
         }
+    }
+    
+    // MARK: - Onboarding
+    
+    private func isFirstLaunch() -> Bool {
+        return !UserDefaults.standard.bool(forKey: hasCompletedOnboardingKey)
+    }
+    
+    private func showOnboarding() {
+        onboardingWindowController = OnboardingWindowController()
+        onboardingWindowController?.showWindow(nil)
+    }
+    
+    @objc private func onboardingCompleted() {
+        NSLog("🎉 AppDelegate: Onboarding completed, starting app")
+        
+        // Mark as complete
+        UserDefaults.standard.set(true, forKey: hasCompletedOnboardingKey)
+        UserDefaults.standard.synchronize()
+        
+        // Start normal app
+        startNormalApp()
+        
+        // Clean up
+        onboardingWindowController = nil
+    }
+    
+    private func startNormalApp() {
+        NSLog("📍 FloatyBrowser: Starting normal app - creating windows")
+        
+        // Initialize WindowManager and create bubbles
+        self.windowManager.initialize()
+        
+        NSLog("✅ FloatyBrowser: Ready - bubbles are now clickable")
     }
     
     func applicationWillTerminate(_ aNotification: Notification) {

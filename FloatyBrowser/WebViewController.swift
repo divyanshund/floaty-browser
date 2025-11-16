@@ -225,7 +225,7 @@ class WebViewController: NSViewController {
         xOffset += buttonSize + 12
         
         // URL field - modern rounded style with space for plus button
-        let plusButtonSpace: CGFloat = buttonSize + 8  // Space for plus button on right
+        let plusButtonSpace: CGFloat = buttonSize + 16  // Space for plus button on right (with spacing)
         let urlFieldWidth = view.bounds.width - xOffset - plusButtonSpace - 12  // 12px right margin
         let urlFieldHeight: CGFloat = 32  // Taller for better vertical centering
         let urlFieldY = (toolbarHeight - urlFieldHeight) / 2
@@ -253,7 +253,7 @@ class WebViewController: NSViewController {
         toolbar.addSubview(urlField)
         
         // New bubble button - simple icon like other buttons, positioned AFTER address bar
-        xOffset += urlFieldWidth + 8  // Position to right of address bar
+        xOffset += urlFieldWidth + 16  // More spacing to visually separate from rounded address bar
         newBubbleButton.frame = NSRect(x: xOffset, y: buttonY, width: buttonSize, height: buttonSize)
         newBubbleButton.autoresizingMask = [.minXMargin]
         newBubbleButton.image = NSImage(systemSymbolName: "plus.circle", accessibilityDescription: "New Bubble")

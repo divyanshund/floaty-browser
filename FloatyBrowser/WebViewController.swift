@@ -113,10 +113,11 @@ class WebViewController: NSViewController {
         trafficLightArea.frame = NSRect(x: 0, y: view.bounds.height - trafficLightHeight, width: view.bounds.width, height: trafficLightHeight)
         trafficLightArea.autoresizingMask = [.width, .minYMargin]
         
-        // Configure vibrancy effect
-        trafficLightArea.material = .titlebar
+        // Configure translucent vibrancy effect
+        trafficLightArea.material = .hudWindow  // More translucent
         trafficLightArea.blendingMode = .behindWindow
         trafficLightArea.state = .active
+        trafficLightArea.alphaValue = 0.95  // Slight transparency
         
         // Add minimize to bubble button
         setupMinimizeToBubbleButton()
@@ -169,10 +170,11 @@ class WebViewController: NSViewController {
         toolbar.frame = NSRect(x: 0, y: view.bounds.height - totalTopHeight, width: view.bounds.width, height: toolbarHeight)
         toolbar.autoresizingMask = [.width, .minYMargin]
         
-        // Configure vibrancy effect
-        toolbar.material = .headerView
+        // Configure translucent vibrancy effect
+        toolbar.material = .hudWindow  // More translucent material
         toolbar.blendingMode = .behindWindow
         toolbar.state = .active
+        toolbar.alphaValue = 0.95  // Slight transparency
         
         let buttonSize: CGFloat = 28  // Modern square buttons
         let buttonY: CGFloat = (toolbarHeight - buttonSize) / 2  // Center vertically
@@ -225,36 +227,42 @@ class WebViewController: NSViewController {
         // URL field - modern rounded style
         let rightButtonsWidth: CGFloat = 50  // New bubble button + margin
         let urlFieldWidth = view.bounds.width - xOffset - rightButtonsWidth
-        let urlFieldHeight: CGFloat = 28
+        let urlFieldHeight: CGFloat = 30  // Slightly taller for better text centering
         let urlFieldY = (toolbarHeight - urlFieldHeight) / 2
         
         urlField.frame = NSRect(x: xOffset, y: urlFieldY, width: urlFieldWidth, height: urlFieldHeight)
         urlField.autoresizingMask = [.width]
-        urlField.placeholderString = "Enter URL or search..."
+        urlField.placeholderString = "Search or enter website"
         urlField.delegate = self
         urlField.font = NSFont.systemFont(ofSize: 13)
+        urlField.alignment = .natural
         
-        // Modern URL field styling
+        // Modern URL field styling - more translucent and rounded
         urlField.wantsLayer = true
-        urlField.layer?.cornerRadius = 6
+        urlField.layer?.cornerRadius = 12  // More rounded
         urlField.layer?.borderWidth = 0.5
-        urlField.layer?.borderColor = NSColor.separatorColor.cgColor
-        urlField.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.5)
+        urlField.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.3).cgColor
+        urlField.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.3)  // More translucent
         urlField.focusRingType = .none
+        urlField.drawsBackground = true
         
-        // Add padding to URL field
+        // Add padding and center text vertically
         if let cell = urlField.cell as? NSTextFieldCell {
             cell.usesSingleLineMode = true
             cell.wraps = false
             cell.isScrollable = true
+            cell.lineBreakMode = .byTruncatingTail
+            
+            // Add left padding for better look
+            cell.setUpFieldEditorAttributes(urlField.currentEditor() as? NSText ?? NSText())
         }
         
         toolbar.addSubview(urlField)
         
-        // New bubble button (right-aligned) - modern style
+        // New bubble button (right-aligned) - modern filled style
         newBubbleButton.frame = NSRect(x: view.bounds.width - 44, y: buttonY, width: buttonSize, height: buttonSize)
         newBubbleButton.autoresizingMask = [.minXMargin]
-        newBubbleButton.image = NSImage(systemSymbolName: "plus.circle", accessibilityDescription: "New Bubble")
+        newBubbleButton.image = NSImage(systemSymbolName: "plus.circle.fill", accessibilityDescription: "New Bubble")
         newBubbleButton.imagePosition = .imageOnly
         newBubbleButton.isBordered = false
         newBubbleButton.bezelStyle = .regularSquare

@@ -255,6 +255,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let appMenu = NSMenu()
         appMenu.addItem(withTitle: "About FloatyBrowser", action: #selector(showAbout), keyEquivalent: "")
         appMenu.addItem(.separator())
+        
+        // Settings in app menu (standard macOS location)
+        let settingsItem = NSMenuItem(title: "Settings...", action: #selector(showPreferences), keyEquivalent: ",")
+        settingsItem.target = self
+        appMenu.addItem(settingsItem)
+        
+        appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Quit FloatyBrowser", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appMenuItem.submenu = appMenu
         
@@ -276,12 +283,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         openBubblesMenu.delegate = self
         openBubblesItem.submenu = openBubblesMenu
         fileMenu.addItem(openBubblesItem)
-        
-        fileMenu.addItem(.separator())
-        
-        let preferencesItem = NSMenuItem(title: "Preferences...", action: #selector(showPreferences), keyEquivalent: ",")
-        preferencesItem.target = self
-        fileMenu.addItem(preferencesItem)
         
         fileMenuItem.submenu = fileMenu
         

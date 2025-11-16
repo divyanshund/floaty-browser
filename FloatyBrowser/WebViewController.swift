@@ -334,14 +334,79 @@ class WebViewController: NSViewController {
     }
     
     func loadURL(_ urlString: String) {
-        var urlToLoad = urlString
+        let trimmedInput = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
         
-        // Add scheme if missing
-        if !urlToLoad.hasPrefix("http://") && !urlToLoad.hasPrefix("https://") {
-            urlToLoad = "https://" + urlToLoad
+        guard !trimmedInput.isEmpty else { return }
+        
+        // Determine if input is a URL or search query
+        if isURL(trimmedInput) {
+            // It's a URL - load it directly
+            var urlToLoad = trimmedInput
+            
+            // Add scheme if missing
+            if !urlToLoad.hasPrefix("http://") && !urlToLoad.hasPrefix("https://") {
+                urlToLoad = "https://" + urlToLoad
+            }
+            
+            guard let url = URL(string: urlToLoad) else { return }
+            NSLog("🌐 Loading URL: \(urlToLoad)")
+            webView.load(URLRequest(url: url))
+        } else {
+            // It's a search query - use search engine
+            performSearch(query: trimmedInput)
+        }
+    }
+    
+    /// Detects if input is a URL or search query
+    private func isURL(_ input: String) -> Bool {
+        // Already has scheme
+        if input.hasPrefix("http://") || input.hasPrefix("https://") {
+            return true
         }
         
-        guard let url = URL(string: urlToLoad) else { return }
+        // Contains spaces - definitely a search query, not a URL
+        if input.contains(" ") {
+            return false
+        }
+        
+        // Has domain extension and no spaces - likely URL
+        let domainPattern = #"^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(/.*)?$"#
+        if let regex = try? NSRegularExpression(pattern: domainPattern),
+           regex.firstMatch(in: input, range: NSRange(input.startIndex..., in: input)) != nil {
+            return true
+        }
+        
+        // localhost or IP address pattern
+        if input.hasPrefix("localhost") {
+            return true
+        }
+        
+        // Check for IP address pattern (simplified)
+        let ipPattern = #"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"#
+        if let ipRegex = try? NSRegularExpression(pattern: ipPattern),
+           ipRegex.firstMatch(in: input, range: NSRange(input.startIndex..., in: input)) != nil {
+            return true
+        }
+        
+        // Default to search for single words or unclear input
+        return false
+    }
+    
+    /// Performs a search using the saved search engine
+    private func performSearch(query: String) {
+        // Get the current search engine from preferences
+        let searchEngine = PreferencesViewController.getCurrentSearchEngine()
+        
+        // Encode the query for URL
+        guard let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+            return
+        }
+        
+        // Construct search URL
+        let searchURLString = searchEngine.searchURL + encodedQuery
+        
+        guard let url = URL(string: searchURLString) else { return }
+        NSLog("🔍 Searching for: \(query) using \(searchEngine.rawValue)")
         webView.load(URLRequest(url: url))
     }
     

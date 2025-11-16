@@ -224,21 +224,9 @@ class WebViewController: NSViewController {
         toolbar.addSubview(reloadButton)
         xOffset += buttonSize + 12
         
-        // New bubble button - positioned from RIGHT side first (fixed position)
+        // Calculate plus button position (need this for address bar width calculation)
         let rightMargin: CGFloat = 12
         let plusButtonX = view.bounds.width - buttonSize - rightMargin
-        newBubbleButton.frame = NSRect(x: plusButtonX, y: buttonY, width: buttonSize, height: buttonSize)
-        newBubbleButton.autoresizingMask = [.minXMargin]  // Stay on right side
-        newBubbleButton.image = NSImage(systemSymbolName: "plus.circle", accessibilityDescription: "New Bubble")
-        newBubbleButton.imagePosition = .imageOnly
-        newBubbleButton.isBordered = false
-        newBubbleButton.bezelStyle = .regularSquare
-        newBubbleButton.contentTintColor = .secondaryLabelColor
-        newBubbleButton.target = self
-        newBubbleButton.action = #selector(createNewBubble)
-        newBubbleButton.toolTip = "Pop out to new bubble"
-        styleModernButton(newBubbleButton)
-        toolbar.addSubview(newBubbleButton)
         
         // URL field - positioned BETWEEN reload button and plus button
         let spacingBeforePlus: CGFloat = 16  // Space between URL field and plus button
@@ -267,6 +255,20 @@ class WebViewController: NSViewController {
         urlField.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.3).cgColor
         
         toolbar.addSubview(urlField)
+        
+        // New bubble button - add AFTER address bar so it's on top (clickable)
+        newBubbleButton.frame = NSRect(x: plusButtonX, y: buttonY, width: buttonSize, height: buttonSize)
+        newBubbleButton.autoresizingMask = [.minXMargin]  // Stay on right side
+        newBubbleButton.image = NSImage(systemSymbolName: "plus.circle", accessibilityDescription: "New Bubble")
+        newBubbleButton.imagePosition = .imageOnly
+        newBubbleButton.isBordered = false
+        newBubbleButton.bezelStyle = .regularSquare
+        newBubbleButton.contentTintColor = .secondaryLabelColor
+        newBubbleButton.target = self
+        newBubbleButton.action = #selector(createNewBubble)
+        newBubbleButton.toolTip = "Pop out to new bubble"
+        styleModernButton(newBubbleButton)
+        toolbar.addSubview(newBubbleButton)
         
         view.addSubview(toolbar)
     }

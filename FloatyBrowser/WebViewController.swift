@@ -229,13 +229,19 @@ class WebViewController: NSViewController {
         let plusButtonX = view.bounds.width - buttonSize - rightMargin
         
         // URL field - positioned BETWEEN reload button and plus button
-        let spacingBeforePlus: CGFloat = 16  // Space between URL field and plus button
+        let spacingBeforePlus: CGFloat = 20  // Increased spacing for clear visual separation
         let urlFieldWidth = plusButtonX - xOffset - spacingBeforePlus
+        
+        NSLog("🎯 Layout Debug:")
+        NSLog("  View width: \(view.bounds.width)")
+        NSLog("  Address bar: x=\(xOffset), width=\(urlFieldWidth), ends at=\(xOffset + urlFieldWidth)")
+        NSLog("  Plus button: x=\(plusButtonX), width=\(buttonSize)")
+        NSLog("  Gap between them: \(plusButtonX - (xOffset + urlFieldWidth))")
         let urlFieldHeight: CGFloat = 32  // Taller for better vertical centering
         let urlFieldY = (toolbarHeight - urlFieldHeight) / 2
         
         urlField.frame = NSRect(x: xOffset, y: urlFieldY, width: urlFieldWidth, height: urlFieldHeight)
-        urlField.autoresizingMask = [.width]  // Resize with window
+        // No autoresizing - keep fixed gap between address bar and plus button
         urlField.placeholderString = "Search or enter website"
         urlField.delegate = self
         urlField.font = NSFont.systemFont(ofSize: 13)

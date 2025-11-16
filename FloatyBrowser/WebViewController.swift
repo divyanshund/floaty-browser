@@ -237,32 +237,35 @@ class WebViewController: NSViewController {
         urlField.font = NSFont.systemFont(ofSize: 13)
         urlField.alignment = .natural
         
-        // Modern URL field styling - more translucent and rounded
-        urlField.wantsLayer = true
-        urlField.layer?.cornerRadius = 12  // More rounded
-        urlField.layer?.borderWidth = 0.5
-        urlField.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.3).cgColor
-        urlField.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.3)  // More translucent
+        // Modern URL field styling - clean rounded look without visible rectangle
+        urlField.isBezeled = false  // Remove default bezel
+        urlField.isBordered = false  // Remove default border
         urlField.focusRingType = .none
         urlField.drawsBackground = true
+        urlField.wantsLayer = true
+        urlField.layer?.masksToBounds = true
+        urlField.layer?.cornerRadius = 12
+        urlField.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.3)
         
-        // Add padding and center text vertically
+        // Add subtle border
+        urlField.layer?.borderWidth = 0.5
+        urlField.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.3).cgColor
+        
+        // Configure cell for vertically centered text
         if let cell = urlField.cell as? NSTextFieldCell {
             cell.usesSingleLineMode = true
             cell.wraps = false
             cell.isScrollable = true
             cell.lineBreakMode = .byTruncatingTail
-            
-            // Add left padding for better look
-            cell.setUpFieldEditorAttributes(urlField.currentEditor() as? NSText ?? NSText())
+            cell.drawsBackground = false  // Let field handle background
         }
         
         toolbar.addSubview(urlField)
         
-        // New bubble button (right-aligned) - modern filled style
+        // New bubble button (right-aligned) - plus icon on circular background
         newBubbleButton.frame = NSRect(x: view.bounds.width - 44, y: buttonY, width: buttonSize, height: buttonSize)
         newBubbleButton.autoresizingMask = [.minXMargin]
-        newBubbleButton.image = NSImage(systemSymbolName: "plus.circle.fill", accessibilityDescription: "New Bubble")
+        newBubbleButton.image = NSImage(systemSymbolName: "plus", accessibilityDescription: "New Bubble")
         newBubbleButton.imagePosition = .imageOnly
         newBubbleButton.isBordered = false
         newBubbleButton.bezelStyle = .regularSquare
@@ -270,6 +273,14 @@ class WebViewController: NSViewController {
         newBubbleButton.target = self
         newBubbleButton.action = #selector(createNewBubble)
         newBubbleButton.toolTip = "Pop out to new bubble"
+        
+        // Add circular background
+        newBubbleButton.wantsLayer = true
+        newBubbleButton.layer?.cornerRadius = buttonSize / 2  // Perfect circle
+        newBubbleButton.layer?.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.8).cgColor
+        newBubbleButton.layer?.borderWidth = 0.5
+        newBubbleButton.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.2).cgColor
+        
         styleModernButton(newBubbleButton)
         toolbar.addSubview(newBubbleButton)
         

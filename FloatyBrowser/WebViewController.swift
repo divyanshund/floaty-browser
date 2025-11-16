@@ -224,14 +224,30 @@ class WebViewController: NSViewController {
         toolbar.addSubview(reloadButton)
         xOffset += buttonSize + 12
         
-        // URL field - modern rounded style with space for plus button
-        let plusButtonSpace: CGFloat = buttonSize + 16  // Space for plus button on right (with spacing)
-        let urlFieldWidth = view.bounds.width - xOffset - plusButtonSpace - 12  // 12px right margin
+        // New bubble button - positioned from RIGHT side first (fixed position)
+        let rightMargin: CGFloat = 12
+        let plusButtonX = view.bounds.width - buttonSize - rightMargin
+        newBubbleButton.frame = NSRect(x: plusButtonX, y: buttonY, width: buttonSize, height: buttonSize)
+        newBubbleButton.autoresizingMask = [.minXMargin]  // Stay on right side
+        newBubbleButton.image = NSImage(systemSymbolName: "plus.circle", accessibilityDescription: "New Bubble")
+        newBubbleButton.imagePosition = .imageOnly
+        newBubbleButton.isBordered = false
+        newBubbleButton.bezelStyle = .regularSquare
+        newBubbleButton.contentTintColor = .secondaryLabelColor
+        newBubbleButton.target = self
+        newBubbleButton.action = #selector(createNewBubble)
+        newBubbleButton.toolTip = "Pop out to new bubble"
+        styleModernButton(newBubbleButton)
+        toolbar.addSubview(newBubbleButton)
+        
+        // URL field - positioned BETWEEN reload button and plus button
+        let spacingBeforePlus: CGFloat = 16  // Space between URL field and plus button
+        let urlFieldWidth = plusButtonX - xOffset - spacingBeforePlus
         let urlFieldHeight: CGFloat = 32  // Taller for better vertical centering
         let urlFieldY = (toolbarHeight - urlFieldHeight) / 2
         
         urlField.frame = NSRect(x: xOffset, y: urlFieldY, width: urlFieldWidth, height: urlFieldHeight)
-        urlField.autoresizingMask = [.width]
+        urlField.autoresizingMask = [.width]  // Resize with window
         urlField.placeholderString = "Search or enter website"
         urlField.delegate = self
         urlField.font = NSFont.systemFont(ofSize: 13)
@@ -251,21 +267,6 @@ class WebViewController: NSViewController {
         urlField.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.3).cgColor
         
         toolbar.addSubview(urlField)
-        
-        // New bubble button - simple icon like other buttons, positioned AFTER address bar
-        xOffset += urlFieldWidth + 16  // More spacing to visually separate from rounded address bar
-        newBubbleButton.frame = NSRect(x: xOffset, y: buttonY, width: buttonSize, height: buttonSize)
-        newBubbleButton.autoresizingMask = [.minXMargin]
-        newBubbleButton.image = NSImage(systemSymbolName: "plus.circle", accessibilityDescription: "New Bubble")
-        newBubbleButton.imagePosition = .imageOnly
-        newBubbleButton.isBordered = false
-        newBubbleButton.bezelStyle = .regularSquare
-        newBubbleButton.contentTintColor = .secondaryLabelColor
-        newBubbleButton.target = self
-        newBubbleButton.action = #selector(createNewBubble)
-        newBubbleButton.toolTip = "Pop out to new bubble"
-        styleModernButton(newBubbleButton)
-        toolbar.addSubview(newBubbleButton)
         
         view.addSubview(toolbar)
     }

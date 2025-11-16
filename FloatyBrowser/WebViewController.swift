@@ -224,10 +224,10 @@ class WebViewController: NSViewController {
         toolbar.addSubview(reloadButton)
         xOffset += buttonSize + 12
         
-        // URL field - modern rounded style
-        let rightButtonsWidth: CGFloat = 50  // New bubble button + margin
-        let urlFieldWidth = view.bounds.width - xOffset - rightButtonsWidth
-        let urlFieldHeight: CGFloat = 30  // Slightly taller for better text centering
+        // URL field - modern rounded style with space for plus button
+        let plusButtonSpace: CGFloat = buttonSize + 8  // Space for plus button on right
+        let urlFieldWidth = view.bounds.width - xOffset - plusButtonSpace - 12  // 12px right margin
+        let urlFieldHeight: CGFloat = 32  // Taller for better vertical centering
         let urlFieldY = (toolbarHeight - urlFieldHeight) / 2
         
         urlField.frame = NSRect(x: xOffset, y: urlFieldY, width: urlFieldWidth, height: urlFieldHeight)
@@ -235,52 +235,35 @@ class WebViewController: NSViewController {
         urlField.placeholderString = "Search or enter website"
         urlField.delegate = self
         urlField.font = NSFont.systemFont(ofSize: 13)
-        urlField.alignment = .natural
+        urlField.alignment = .left
         
-        // Modern URL field styling - clean rounded look without visible rectangle
-        urlField.isBezeled = false  // Remove default bezel
-        urlField.isBordered = false  // Remove default border
+        // Modern URL field styling - very rounded, clean look
+        urlField.isBezeled = true
+        urlField.bezelStyle = .roundedBezel  // Use native rounded bezel for proper centering
         urlField.focusRingType = .none
-        urlField.drawsBackground = true
         urlField.wantsLayer = true
+        urlField.layer?.cornerRadius = 16  // Very rounded
         urlField.layer?.masksToBounds = true
-        urlField.layer?.cornerRadius = 12
         urlField.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.3)
         
         // Add subtle border
         urlField.layer?.borderWidth = 0.5
         urlField.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.3).cgColor
         
-        // Configure cell for vertically centered text
-        if let cell = urlField.cell as? NSTextFieldCell {
-            cell.usesSingleLineMode = true
-            cell.wraps = false
-            cell.isScrollable = true
-            cell.lineBreakMode = .byTruncatingTail
-            cell.drawsBackground = false  // Let field handle background
-        }
-        
         toolbar.addSubview(urlField)
         
-        // New bubble button (right-aligned) - plus icon on circular background
-        newBubbleButton.frame = NSRect(x: view.bounds.width - 44, y: buttonY, width: buttonSize, height: buttonSize)
+        // New bubble button - simple icon like other buttons, positioned AFTER address bar
+        xOffset += urlFieldWidth + 8  // Position to right of address bar
+        newBubbleButton.frame = NSRect(x: xOffset, y: buttonY, width: buttonSize, height: buttonSize)
         newBubbleButton.autoresizingMask = [.minXMargin]
-        newBubbleButton.image = NSImage(systemSymbolName: "plus", accessibilityDescription: "New Bubble")
+        newBubbleButton.image = NSImage(systemSymbolName: "plus.circle", accessibilityDescription: "New Bubble")
         newBubbleButton.imagePosition = .imageOnly
         newBubbleButton.isBordered = false
         newBubbleButton.bezelStyle = .regularSquare
-        newBubbleButton.contentTintColor = .controlAccentColor
+        newBubbleButton.contentTintColor = .secondaryLabelColor
         newBubbleButton.target = self
         newBubbleButton.action = #selector(createNewBubble)
         newBubbleButton.toolTip = "Pop out to new bubble"
-        
-        // Add circular background
-        newBubbleButton.wantsLayer = true
-        newBubbleButton.layer?.cornerRadius = buttonSize / 2  // Perfect circle
-        newBubbleButton.layer?.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.8).cgColor
-        newBubbleButton.layer?.borderWidth = 0.5
-        newBubbleButton.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.2).cgColor
-        
         styleModernButton(newBubbleButton)
         toolbar.addSubview(newBubbleButton)
         

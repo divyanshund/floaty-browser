@@ -12,6 +12,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private let windowManager = WindowManager.shared
     private var onboardingWindowController: OnboardingWindowController?
+    private var preferencesWindowController: PreferencesWindowController?
     
     // UserDefaults key
     private let hasCompletedOnboardingKey = "hasCompletedOnboarding"
@@ -230,12 +231,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @objc private func showPreferences() {
-        let alert = NSAlert()
-        alert.messageText = "Preferences"
-        alert.informativeText = "Preferences panel coming soon!\n\nThis will allow you to customize:\n• Default homepage\n• Bubble appearance\n• Keyboard shortcuts\n• And more..."
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "OK")
-        alert.runModal()
+        NSLog("⚙️ AppDelegate: Opening Preferences")
+        
+        // Create preferences window if it doesn't exist
+        if preferencesWindowController == nil {
+            preferencesWindowController = PreferencesWindowController()
+        }
+        
+        // Show and bring to front
+        preferencesWindowController?.showWindow(nil)
+        preferencesWindowController?.window?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
     
     // MARK: - Main Menu Setup

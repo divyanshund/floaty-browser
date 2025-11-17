@@ -151,7 +151,7 @@ class SearchPreferencesViewController: NSViewController {
     
     private func setupUI() {
         let leftMargin: CGFloat = 60
-        let contentWidth: CGFloat = 480  // Fixed width for proper wrapping
+        let contentWidth: CGFloat = 480
         let topStart: CGFloat = 360
         
         // Title
@@ -161,16 +161,17 @@ class SearchPreferencesViewController: NSViewController {
         title.alignment = .left
         view.addSubview(title)
         
-        // Description - using wrapping label
-        let description = NSTextField(wrappingLabelWithString: "Choose which search engine to use when searching from the address bar.")
-        description.frame = NSRect(x: leftMargin, y: topStart - 60, width: contentWidth, height: 40)
-        description.font = NSFont.systemFont(ofSize: 13)
+        // Description - properly configured wrapping label
+        let description = createWrappingLabel(
+            text: "Choose which search engine to use when searching from the address bar.",
+            frame: NSRect(x: leftMargin, y: topStart - 75, width: contentWidth, height: 50),
+            fontSize: 13
+        )
         description.textColor = .secondaryLabelColor
-        description.alignment = .left
         view.addSubview(description)
         
         // Search engine dropdown
-        searchEnginePopup = NSPopUpButton(frame: NSRect(x: leftMargin, y: topStart - 115, width: 200, height: 28))
+        searchEnginePopup = NSPopUpButton(frame: NSRect(x: leftMargin, y: topStart - 135, width: 200, height: 28))
         searchEnginePopup.font = NSFont.systemFont(ofSize: 13)
         searchEnginePopup.removeAllItems()
         
@@ -184,7 +185,7 @@ class SearchPreferencesViewController: NSViewController {
         
         // Preview section title
         let previewTitle = NSTextField(labelWithString: "Preview")
-        previewTitle.frame = NSRect(x: leftMargin, y: topStart - 165, width: contentWidth, height: 20)
+        previewTitle.frame = NSRect(x: leftMargin, y: topStart - 185, width: contentWidth, height: 20)
         previewTitle.font = NSFont.systemFont(ofSize: 13, weight: .medium)
         previewTitle.textColor = .secondaryLabelColor
         previewTitle.alignment = .left
@@ -192,7 +193,7 @@ class SearchPreferencesViewController: NSViewController {
         
         // Preview URL (monospaced font for URL)
         previewLabel = NSTextField(labelWithString: "")
-        previewLabel.frame = NSRect(x: leftMargin, y: topStart - 195, width: contentWidth, height: 22)
+        previewLabel.frame = NSRect(x: leftMargin, y: topStart - 215, width: contentWidth, height: 22)
         previewLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
         previewLabel.textColor = NSColor.systemBlue.withAlphaComponent(0.8)
         previewLabel.alignment = .left
@@ -204,6 +205,24 @@ class SearchPreferencesViewController: NSViewController {
         view.addSubview(previewLabel)
         
         NSLog("✅ SearchPreferencesViewController: UI setup complete")
+    }
+    
+    private func createWrappingLabel(text: String, frame: NSRect, fontSize: CGFloat) -> NSTextField {
+        let label = NSTextField(frame: frame)
+        label.stringValue = text
+        label.font = NSFont.systemFont(ofSize: fontSize)
+        label.isBezeled = false
+        label.isBordered = false
+        label.isEditable = false
+        label.isSelectable = false
+        label.drawsBackground = false
+        label.backgroundColor = .clear
+        label.lineBreakMode = .byWordWrapping
+        label.maximumNumberOfLines = 0  // Allow unlimited lines
+        label.alignment = .left
+        label.cell?.wraps = true
+        label.cell?.isScrollable = false
+        return label
     }
     
     private func loadSavedSearchEngine() {
@@ -257,7 +276,7 @@ class GeneralPreferencesViewController: NSViewController {
     
     private func setupUI() {
         let leftMargin: CGFloat = 60
-        let contentWidth: CGFloat = 480  // Fixed width for proper wrapping
+        let contentWidth: CGFloat = 480
         let topStart: CGFloat = 360
         
         // Title
@@ -280,15 +299,34 @@ class GeneralPreferencesViewController: NSViewController {
         hapticsCheckbox.font = NSFont.systemFont(ofSize: 13)
         view.addSubview(hapticsCheckbox)
         
-        // Haptics description (properly wrapped)
-        let hapticsDesc = NSTextField(wrappingLabelWithString: "Subtle tactile confirmation when dragging bubbles near screen edges. This feature is available on MacBook trackpads.")
-        hapticsDesc.frame = NSRect(x: leftMargin + 20, y: topStart - 150, width: contentWidth - 20, height: 44)
-        hapticsDesc.font = NSFont.systemFont(ofSize: 12)
+        // Haptics description - properly configured wrapping label
+        let hapticsDesc = createWrappingLabel(
+            text: "Subtle tactile confirmation when dragging bubbles near screen edges. This feature is available on MacBook trackpads.",
+            frame: NSRect(x: leftMargin + 20, y: topStart - 160, width: contentWidth - 20, height: 50),
+            fontSize: 12
+        )
         hapticsDesc.textColor = .secondaryLabelColor
-        hapticsDesc.alignment = .left
         view.addSubview(hapticsDesc)
         
         NSLog("✅ GeneralPreferencesViewController: UI setup complete")
+    }
+    
+    private func createWrappingLabel(text: String, frame: NSRect, fontSize: CGFloat) -> NSTextField {
+        let label = NSTextField(frame: frame)
+        label.stringValue = text
+        label.font = NSFont.systemFont(ofSize: fontSize)
+        label.isBezeled = false
+        label.isBordered = false
+        label.isEditable = false
+        label.isSelectable = false
+        label.drawsBackground = false
+        label.backgroundColor = .clear
+        label.lineBreakMode = .byWordWrapping
+        label.maximumNumberOfLines = 0  // Allow unlimited lines
+        label.alignment = .left
+        label.cell?.wraps = true
+        label.cell?.isScrollable = false
+        return label
     }
     
     private func loadSavedSettings() {

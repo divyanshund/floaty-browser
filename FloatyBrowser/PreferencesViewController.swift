@@ -263,7 +263,7 @@ class BubblePreviewView: NSView {
         
         // Icon label
         // NSTextField doesn't center text vertically by default, so we offset it manually
-        let verticalOffset: CGFloat = 5  // Push down slightly to visually center
+        let verticalOffset: CGFloat = -10  // Push down to visually center (negative moves content down)
         iconLabel = NSTextField(labelWithString: "🌐")
         iconLabel.font = NSFont.systemFont(ofSize: 32)
         iconLabel.alignment = .center

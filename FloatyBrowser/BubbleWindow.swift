@@ -433,7 +433,7 @@ class BubbleView: NSView {
         // Icon label (emoji fallback) - centered properly
         // NSTextField doesn't center text vertically by default, so we offset it manually
         let iconSize: CGFloat = 28
-        let verticalOffset: CGFloat = 4  // Push down slightly to visually center
+        let verticalOffset: CGFloat = -8  // Push down to visually center (negative moves content down)
         iconLabel.font = NSFont.systemFont(ofSize: iconSize)
         iconLabel.alignment = .center
         iconLabel.frame = NSRect(x: 0, y: verticalOffset, width: bounds.width, height: bounds.height)

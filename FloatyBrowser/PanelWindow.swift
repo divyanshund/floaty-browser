@@ -62,6 +62,9 @@ class PanelWindow: NSPanel {
     // Store the user's resized frame so we can restore it when showing again
     private var savedFrame: NSRect?
     
+    // Store the window's frame before maximizing so we can restore it
+    private var savedNormalFrame: NSRect?
+    
     // Custom control buttons
     private var customControlBar: NSVisualEffectView!
     private var closeWindowButton: NSButton!
@@ -224,7 +227,7 @@ class PanelWindow: NSPanel {
         fullscreenButton.contentTintColor = .secondaryLabelColor
         fullscreenButton.target = self
         fullscreenButton.action = #selector(customFullscreenClicked)
-        fullscreenButton.toolTip = "Toggle fullscreen"
+        fullscreenButton.toolTip = "Maximize window"
         styleWindowButton(fullscreenButton)
         xOffset += buttonSize + 2
         
@@ -275,19 +278,36 @@ class PanelWindow: NSPanel {
     }
     
     @objc private func customFullscreenClicked() {
-        NSLog("🟢 Custom fullscreen button clicked")
+        NSLog("🟢 Custom expand/restore button clicked")
         
-        // Check if we're in fullscreen
-        if styleMask.contains(.fullScreen) {
-            // Exit fullscreen
-            toggleFullScreen(nil)
-            NSLog("🟢 Exiting fullscreen mode")
+        guard let screen = self.screen else {
+            NSLog("❌ No screen found")
+            return
+        }
+        
+        let visibleFrame = screen.visibleFrame
+        let tolerance: CGFloat = 10  // Small tolerance for comparison
+        
+        // Check if currently maximized (within tolerance)
+        let isMaximized = (abs(frame.size.width - visibleFrame.size.width) < tolerance &&
+                          abs(frame.size.height - visibleFrame.size.height) < tolerance)
+        
+        if isMaximized {
+            // Restore to previous size
+            if let savedFrame = savedNormalFrame {
+                NSLog("🟢 Restoring to previous size: \(NSStringFromRect(savedFrame))")
+                setFrame(savedFrame, display: true, animate: true)
+                savedNormalFrame = nil
+            } else {
+                NSLog("⚠️ No saved frame, restoring to default size")
+                let restoredFrame = NSRect(origin: frame.origin, size: defaultSize)
+                setFrame(restoredFrame, display: true, animate: true)
+            }
         } else {
-            // Enter fullscreen - need to update collection behavior first
-            collectionBehavior.insert(.fullScreenPrimary)
-            collectionBehavior.remove(.fullScreenAuxiliary)
-            toggleFullScreen(nil)
-            NSLog("🟢 Entering fullscreen mode")
+            // Save current frame and maximize
+            savedNormalFrame = frame
+            NSLog("🟢 Maximizing window. Saved frame: \(NSStringFromRect(frame))")
+            setFrame(visibleFrame, display: true, animate: true)
         }
     }
     

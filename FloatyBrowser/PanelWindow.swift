@@ -7,6 +7,51 @@
 
 import Cocoa
 
+// Custom button for window controls with hover effect
+class WindowControlButton: NSButton {
+    private var trackingArea: NSTrackingArea?
+    private var isHovering = false
+    
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        
+        // Remove old tracking area if it exists
+        if let existingTrackingArea = trackingArea {
+            removeTrackingArea(existingTrackingArea)
+        }
+        
+        // Create new tracking area
+        let options: NSTrackingArea.Options = [.mouseEnteredAndExited, .activeAlways]
+        trackingArea = NSTrackingArea(rect: bounds, options: options, owner: self, userInfo: nil)
+        addTrackingArea(trackingArea!)
+    }
+    
+    override func mouseEntered(with event: NSEvent) {
+        super.mouseEntered(with: event)
+        isHovering = true
+        applyHoverState()
+    }
+    
+    override func mouseExited(with event: NSEvent) {
+        super.mouseExited(with: event)
+        isHovering = false
+        applyHoverState()
+    }
+    
+    private func applyHoverState() {
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.15
+            context.allowsImplicitAnimation = true
+            
+            if isHovering {
+                self.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.12).cgColor
+            } else {
+                self.layer?.backgroundColor = NSColor.clear.cgColor
+            }
+        })
+    }
+}
+
 class PanelWindow: NSPanel {
     let panelId: UUID
     private(set) var webViewController: WebViewController!
@@ -130,7 +175,7 @@ class PanelWindow: NSPanel {
         
         let controlBarHeight: CGFloat = 28
         let margin: CGFloat = 8
-        let buttonSize: CGFloat = 16
+        let buttonSize: CGFloat = 20  // Slightly larger for better click target
         
         // Create translucent control bar
         customControlBar = NSVisualEffectView(frame: NSRect(
@@ -147,24 +192,26 @@ class PanelWindow: NSPanel {
         
         var xOffset = margin
         
-        // Close button (red circle with X)
-        closeWindowButton = NSButton(frame: NSRect(
+        // Close button - styled like other browser buttons
+        closeWindowButton = WindowControlButton(frame: NSRect(
             x: xOffset,
             y: (controlBarHeight - buttonSize) / 2,
             width: buttonSize,
             height: buttonSize
         ))
-        closeWindowButton.image = NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: "Close")
+        closeWindowButton.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: "Close")
         closeWindowButton.imagePosition = .imageOnly
         closeWindowButton.isBordered = false
-        closeWindowButton.contentTintColor = NSColor.systemRed
+        closeWindowButton.bezelStyle = .regularSquare
+        closeWindowButton.contentTintColor = .secondaryLabelColor
         closeWindowButton.target = self
         closeWindowButton.action = #selector(customCloseClicked)
         closeWindowButton.toolTip = "Close bubble"
-        xOffset += buttonSize + 6
+        styleWindowButton(closeWindowButton)
+        xOffset += buttonSize + 2
         
-        // Fullscreen button (expand arrows)
-        fullscreenButton = NSButton(frame: NSRect(
+        // Fullscreen button - styled like other browser buttons
+        fullscreenButton = WindowControlButton(frame: NSRect(
             x: xOffset,
             y: (controlBarHeight - buttonSize) / 2,
             width: buttonSize,
@@ -173,14 +220,16 @@ class PanelWindow: NSPanel {
         fullscreenButton.image = NSImage(systemSymbolName: "arrow.up.left.and.arrow.down.right", accessibilityDescription: "Fullscreen")
         fullscreenButton.imagePosition = .imageOnly
         fullscreenButton.isBordered = false
-        fullscreenButton.contentTintColor = NSColor.systemGreen
+        fullscreenButton.bezelStyle = .regularSquare
+        fullscreenButton.contentTintColor = .secondaryLabelColor
         fullscreenButton.target = self
         fullscreenButton.action = #selector(customFullscreenClicked)
         fullscreenButton.toolTip = "Toggle fullscreen"
-        xOffset += buttonSize + 6
+        styleWindowButton(fullscreenButton)
+        xOffset += buttonSize + 2
         
-        // Minimize to bubble button (circle)
-        minimizeToBubbleButton = NSButton(frame: NSRect(
+        // Minimize to bubble button - styled like other browser buttons
+        minimizeToBubbleButton = WindowControlButton(frame: NSRect(
             x: xOffset,
             y: (controlBarHeight - buttonSize) / 2,
             width: buttonSize,
@@ -189,10 +238,12 @@ class PanelWindow: NSPanel {
         minimizeToBubbleButton.image = NSImage(systemSymbolName: "circle.fill", accessibilityDescription: "Minimize to Bubble")
         minimizeToBubbleButton.imagePosition = .imageOnly
         minimizeToBubbleButton.isBordered = false
-        minimizeToBubbleButton.contentTintColor = NSColor.systemYellow
+        minimizeToBubbleButton.bezelStyle = .regularSquare
+        minimizeToBubbleButton.contentTintColor = .secondaryLabelColor
         minimizeToBubbleButton.target = self
         minimizeToBubbleButton.action = #selector(customMinimizeClicked)
         minimizeToBubbleButton.toolTip = "Minimize to bubble"
+        styleWindowButton(minimizeToBubbleButton)
         
         // Add buttons to control bar
         customControlBar.addSubview(closeWindowButton)
@@ -203,6 +254,12 @@ class PanelWindow: NSPanel {
         contentView.addSubview(customControlBar, positioned: .above, relativeTo: nil)
         
         NSLog("✅ Custom window controls added")
+    }
+    
+    private func styleWindowButton(_ button: NSButton) {
+        button.wantsLayer = true
+        button.layer?.cornerRadius = 10  // Circular background
+        button.layer?.masksToBounds = true
     }
     
     private func setupCloseButton() {
@@ -219,7 +276,19 @@ class PanelWindow: NSPanel {
     
     @objc private func customFullscreenClicked() {
         NSLog("🟢 Custom fullscreen button clicked")
-        toggleFullScreen(nil)
+        
+        // Check if we're in fullscreen
+        if styleMask.contains(.fullScreen) {
+            // Exit fullscreen
+            toggleFullScreen(nil)
+            NSLog("🟢 Exiting fullscreen mode")
+        } else {
+            // Enter fullscreen - need to update collection behavior first
+            collectionBehavior.insert(.fullScreenPrimary)
+            collectionBehavior.remove(.fullScreenAuxiliary)
+            toggleFullScreen(nil)
+            NSLog("🟢 Entering fullscreen mode")
+        }
     }
     
     @objc private func customMinimizeClicked() {

@@ -17,6 +17,12 @@ class PanelWindow: NSPanel {
     // Store the user's resized frame so we can restore it when showing again
     private var savedFrame: NSRect?
     
+    // Custom control buttons
+    private var customControlBar: NSVisualEffectView!
+    private var closeWindowButton: NSButton!
+    private var fullscreenButton: NSButton!
+    private var minimizeToBubbleButton: NSButton!
+    
     weak var panelDelegate: PanelWindowDelegate?
     
     init(id: UUID, url: String, nearBubble bubbleFrame: NSRect) {
@@ -36,6 +42,7 @@ class PanelWindow: NSPanel {
         setupWindow()
         setupWebView(url: url)
         setupCloseButton()
+        setupCustomControls()
     }
     
     private func setupWindow() {
@@ -51,9 +58,14 @@ class PanelWindow: NSPanel {
         contentView?.layer?.cornerRadius = 10
         contentView?.layer?.masksToBounds = true
         
-        // Hide title bar but keep controls
+        // Hide title bar and make it transparent
         titlebarAppearsTransparent = true
         titleVisibility = .hidden
+        
+        // Hide standard traffic lights
+        standardWindowButton(.closeButton)?.isHidden = true
+        standardWindowButton(.miniaturizeButton)?.isHidden = true
+        standardWindowButton(.zoomButton)?.isHidden = true
         
         // Set minimum size
         minSize = minimumSize
@@ -113,9 +125,106 @@ class PanelWindow: NSPanel {
         webViewController.loadURL(url)
     }
     
+    private func setupCustomControls() {
+        guard let contentView = contentView else { return }
+        
+        let controlBarHeight: CGFloat = 28
+        let margin: CGFloat = 8
+        let buttonSize: CGFloat = 16
+        
+        // Create translucent control bar
+        customControlBar = NSVisualEffectView(frame: NSRect(
+            x: 0,
+            y: contentView.bounds.height - controlBarHeight,
+            width: contentView.bounds.width,
+            height: controlBarHeight
+        ))
+        customControlBar.autoresizingMask = [.width, .minYMargin]
+        customControlBar.material = .hudWindow
+        customControlBar.blendingMode = .behindWindow
+        customControlBar.state = .active
+        customControlBar.wantsLayer = true
+        
+        var xOffset = margin
+        
+        // Close button (red circle with X)
+        closeWindowButton = NSButton(frame: NSRect(
+            x: xOffset,
+            y: (controlBarHeight - buttonSize) / 2,
+            width: buttonSize,
+            height: buttonSize
+        ))
+        closeWindowButton.image = NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: "Close")
+        closeWindowButton.imagePosition = .imageOnly
+        closeWindowButton.isBordered = false
+        closeWindowButton.contentTintColor = NSColor.systemRed
+        closeWindowButton.target = self
+        closeWindowButton.action = #selector(customCloseClicked)
+        closeWindowButton.toolTip = "Close bubble"
+        xOffset += buttonSize + 6
+        
+        // Fullscreen button (expand arrows)
+        fullscreenButton = NSButton(frame: NSRect(
+            x: xOffset,
+            y: (controlBarHeight - buttonSize) / 2,
+            width: buttonSize,
+            height: buttonSize
+        ))
+        fullscreenButton.image = NSImage(systemSymbolName: "arrow.up.left.and.arrow.down.right", accessibilityDescription: "Fullscreen")
+        fullscreenButton.imagePosition = .imageOnly
+        fullscreenButton.isBordered = false
+        fullscreenButton.contentTintColor = NSColor.systemGreen
+        fullscreenButton.target = self
+        fullscreenButton.action = #selector(customFullscreenClicked)
+        fullscreenButton.toolTip = "Toggle fullscreen"
+        xOffset += buttonSize + 6
+        
+        // Minimize to bubble button (circle)
+        minimizeToBubbleButton = NSButton(frame: NSRect(
+            x: xOffset,
+            y: (controlBarHeight - buttonSize) / 2,
+            width: buttonSize,
+            height: buttonSize
+        ))
+        minimizeToBubbleButton.image = NSImage(systemSymbolName: "circle.fill", accessibilityDescription: "Minimize to Bubble")
+        minimizeToBubbleButton.imagePosition = .imageOnly
+        minimizeToBubbleButton.isBordered = false
+        minimizeToBubbleButton.contentTintColor = NSColor.systemYellow
+        minimizeToBubbleButton.target = self
+        minimizeToBubbleButton.action = #selector(customMinimizeClicked)
+        minimizeToBubbleButton.toolTip = "Minimize to bubble"
+        
+        // Add buttons to control bar
+        customControlBar.addSubview(closeWindowButton)
+        customControlBar.addSubview(fullscreenButton)
+        customControlBar.addSubview(minimizeToBubbleButton)
+        
+        // Add control bar to window
+        contentView.addSubview(customControlBar, positioned: .above, relativeTo: nil)
+        
+        NSLog("✅ Custom window controls added")
+    }
+    
     private func setupCloseButton() {
         // No longer needed - close button is now in the toolbar
         // Keeping this method for compatibility but it does nothing
+    }
+    
+    // MARK: - Custom Control Actions
+    
+    @objc private func customCloseClicked() {
+        NSLog("🔴 Custom close button clicked - deleting bubble")
+        panelDelegate?.panelWindowDidRequestClose(self)
+    }
+    
+    @objc private func customFullscreenClicked() {
+        NSLog("🟢 Custom fullscreen button clicked")
+        toggleFullScreen(nil)
+    }
+    
+    @objc private func customMinimizeClicked() {
+        NSLog("🟡 Custom minimize to bubble button clicked")
+        panelDelegate?.panelWindowDidRequestCollapse(self)
     }
     
     @objc private func closeButtonClicked() {

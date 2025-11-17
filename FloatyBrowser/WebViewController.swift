@@ -13,6 +13,56 @@ import WebKit
 class BrowserStyleTextField: NSTextField {
     private var isCurrentlyEditing = false
     
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        setupFocusGlow()
+    }
+    
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupFocusGlow()
+    }
+    
+    private func setupFocusGlow() {
+        wantsLayer = true
+        layer?.borderWidth = 0 // Start with no border
+        layer?.borderColor = NSColor.clear.cgColor
+    }
+    
+    override func becomeFirstResponder() -> Bool {
+        let result = super.becomeFirstResponder()
+        if result {
+            animateFocusGlow(isFocused: true)
+        }
+        return result
+    }
+    
+    override func resignFirstResponder() -> Bool {
+        let result = super.resignFirstResponder()
+        if result {
+            animateFocusGlow(isFocused: false)
+        }
+        return result
+    }
+    
+    private func animateFocusGlow(isFocused: Bool) {
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.2
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            context.allowsImplicitAnimation = true
+            
+            if isFocused {
+                // Subtle blue glow when focused
+                self.layer?.borderWidth = 2.0
+                self.layer?.borderColor = NSColor.controlAccentColor.withAlphaComponent(0.5).cgColor
+            } else {
+                // Remove glow when unfocused
+                self.layer?.borderWidth = 0
+                self.layer?.borderColor = NSColor.clear.cgColor
+            }
+        })
+    }
+    
     override func mouseDown(with event: NSEvent) {
         let wasEditing = isCurrentlyEditing
         
@@ -35,6 +85,59 @@ class BrowserStyleTextField: NSTextField {
     override func textDidEndEditing(_ notification: Notification) {
         super.textDidEndEditing(notification)
         isCurrentlyEditing = false
+    }
+}
+
+// Custom progress bar for address bar
+class AddressBarProgressView: NSView {
+    private let progressLayer = CALayer()
+    
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        setupProgressLayer()
+    }
+    
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupProgressLayer()
+    }
+    
+    private func setupProgressLayer() {
+        wantsLayer = true
+        layer?.masksToBounds = true
+        
+        // Setup progress layer
+        progressLayer.backgroundColor = NSColor.controlAccentColor.cgColor
+        progressLayer.frame = CGRect(x: 0, y: 0, width: 0, height: bounds.height)
+        layer?.addSublayer(progressLayer)
+    }
+    
+    func setProgress(_ progress: Double, animated: Bool = true) {
+        let targetWidth = bounds.width * CGFloat(progress)
+        
+        if animated {
+            CATransaction.begin()
+            CATransaction.setAnimationDuration(0.25)
+            CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeInEaseOut))
+            progressLayer.frame = CGRect(x: 0, y: 0, width: targetWidth, height: bounds.height)
+            CATransaction.commit()
+        } else {
+            progressLayer.frame = CGRect(x: 0, y: 0, width: targetWidth, height: bounds.height)
+        }
+    }
+    
+    func show() {
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.2
+            self.animator().alphaValue = 1.0
+        })
+    }
+    
+    func hide() {
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.3
+            self.animator().alphaValue = 0.0
+        })
     }
 }
 
@@ -92,6 +195,7 @@ class WebViewController: NSViewController {
     private let forwardButton = HoverButton()
     private let reloadButton = HoverButton()
     private let urlField = BrowserStyleTextField()
+    private let addressBarProgressView = AddressBarProgressView()
     private let newBubbleButton = HoverButton()
     private var progressIndicator: NSProgressIndicator!
     
@@ -301,6 +405,20 @@ class WebViewController: NSViewController {
         
         toolbar.addSubview(urlField)
         
+        // Address bar progress view - positioned at the bottom of the address bar
+        let progressBarHeight: CGFloat = 3
+        addressBarProgressView.frame = NSRect(
+            x: urlField.frame.origin.x,
+            y: urlField.frame.origin.y,
+            width: urlField.frame.width,
+            height: progressBarHeight
+        )
+        addressBarProgressView.wantsLayer = true
+        addressBarProgressView.layer?.cornerRadius = 1.5  // Slight rounding
+        addressBarProgressView.layer?.masksToBounds = true
+        addressBarProgressView.alphaValue = 0  // Start hidden
+        toolbar.addSubview(addressBarProgressView)
+        
         // New bubble button - add AFTER address bar so it's on top (clickable)
         newBubbleButton.frame = NSRect(x: plusButtonX, y: buttonY, width: buttonSize, height: buttonSize)
         newBubbleButton.autoresizingMask = [.minXMargin]  // Stay on right side
@@ -360,8 +478,29 @@ class WebViewController: NSViewController {
     
     override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
         if keyPath == #keyPath(WKWebView.estimatedProgress) {
-            progressIndicator.doubleValue = webView.estimatedProgress
-            progressIndicator.isHidden = webView.estimatedProgress >= 1.0
+            let progress = webView.estimatedProgress
+            
+            // Update old progress indicator
+            progressIndicator.doubleValue = progress
+            progressIndicator.isHidden = progress >= 1.0
+            
+            // Update address bar progress view
+            if progress > 0 && progress < 1.0 {
+                // Show and update progress
+                if addressBarProgressView.alphaValue == 0 {
+                    addressBarProgressView.show()
+                }
+                addressBarProgressView.setProgress(progress)
+            } else if progress >= 1.0 {
+                // Page loaded - hide progress bar after brief delay
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                    self?.addressBarProgressView.hide()
+                    // Reset progress after hiding
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                        self?.addressBarProgressView.setProgress(0, animated: false)
+                    }
+                }
+            }
         } else if keyPath == #keyPath(WKWebView.canGoBack) {
             backButton.isEnabled = webView.canGoBack
         } else if keyPath == #keyPath(WKWebView.canGoForward) {

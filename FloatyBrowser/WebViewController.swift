@@ -229,7 +229,7 @@ class WebViewController: NSViewController {
         let plusButtonX = view.bounds.width - buttonSize - rightMargin
         
         // URL field - positioned BETWEEN reload button and plus button
-        let spacingBeforePlus: CGFloat = 20  // Increased spacing for clear visual separation
+        let spacingBeforePlus: CGFloat = 12  // Match spacing with reload button
         let urlFieldWidth = plusButtonX - xOffset - spacingBeforePlus
         let urlFieldHeight: CGFloat = 32  // Taller for better vertical centering
         let urlFieldY = (toolbarHeight - urlFieldHeight) / 2

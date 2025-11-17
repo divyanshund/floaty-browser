@@ -44,16 +44,6 @@ class PreferencesWindowController: NSWindowController {
         tabViewController = NSTabViewController()
         tabViewController.tabStyle = .toolbar
         
-        // Create translucent background view
-        let backgroundView = NSVisualEffectView(frame: window.contentView!.bounds)
-        backgroundView.material = .sidebar
-        backgroundView.blendingMode = .behindWindow
-        backgroundView.state = .active
-        backgroundView.autoresizingMask = [.width, .height]
-        
-        // Add background to window
-        window.contentView?.addSubview(backgroundView, positioned: .below, relativeTo: nil)
-        
         // Create tab items
         let appearanceTab = NSTabViewItem(viewController: AppearancePreferencesViewController())
         appearanceTab.label = "Appearance"
@@ -74,6 +64,25 @@ class PreferencesWindowController: NSWindowController {
         
         // Set as content view controller
         window.contentViewController = tabViewController
+        
+        // CRITICAL: Replace the window's content view with a visual effect view
+        // This must happen AFTER setting contentViewController
+        let contentView = window.contentView!
+        let visualEffectView = NSVisualEffectView(frame: contentView.bounds)
+        visualEffectView.autoresizingMask = [.width, .height]
+        visualEffectView.material = .sidebar
+        visualEffectView.blendingMode = .behindWindow
+        visualEffectView.state = .active
+        
+        // Move all existing subviews to the visual effect view
+        let existingSubviews = contentView.subviews
+        for subview in existingSubviews {
+            subview.removeFromSuperview()
+            visualEffectView.addSubview(subview)
+        }
+        
+        // Replace content view
+        window.contentView = visualEffectView
     }
     
     override func windowDidLoad() {

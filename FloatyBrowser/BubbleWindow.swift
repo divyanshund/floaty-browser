@@ -267,28 +267,46 @@ class BubbleWindow: NSPanel {
         let snapThreshold: CGFloat = 20
         let visibleFrame = screen.visibleFrame
         var snappedOrigin = origin
+        var didSnap = false
         
         // Snap to left edge
         if abs(origin.x - visibleFrame.minX) < snapThreshold {
             snappedOrigin.x = visibleFrame.minX + 5
+            didSnap = true
         }
         
         // Snap to right edge
         if abs(origin.x + frame.width - visibleFrame.maxX) < snapThreshold {
             snappedOrigin.x = visibleFrame.maxX - frame.width - 5
+            didSnap = true
         }
         
         // Snap to top edge
         if abs(origin.y + frame.height - visibleFrame.maxY) < snapThreshold {
             snappedOrigin.y = visibleFrame.maxY - frame.height - 5
+            didSnap = true
         }
         
         // Snap to bottom edge
         if abs(origin.y - visibleFrame.minY) < snapThreshold {
             snappedOrigin.y = visibleFrame.minY + 5
+            didSnap = true
+        }
+        
+        // Trigger haptic feedback when snap occurs (MacBook only)
+        if didSnap && snappedOrigin != origin {
+            triggerSnapHaptic()
         }
         
         return snappedOrigin
+    }
+    
+    private func triggerSnapHaptic() {
+        // Subtle haptic feedback for edge snap (available on MacBook trackpads)
+        NSHapticFeedbackManager.defaultPerformer.perform(
+            .alignment,
+            performanceTime: .default
+        )
     }
     
     // MARK: - Idle Animation

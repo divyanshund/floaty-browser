@@ -231,12 +231,6 @@ class WebViewController: NSViewController {
         // URL field - positioned BETWEEN reload button and plus button
         let spacingBeforePlus: CGFloat = 20  // Increased spacing for clear visual separation
         let urlFieldWidth = plusButtonX - xOffset - spacingBeforePlus
-        
-        NSLog("🎯 Layout Debug:")
-        NSLog("  View width: \(view.bounds.width)")
-        NSLog("  Address bar: x=\(xOffset), width=\(urlFieldWidth), ends at=\(xOffset + urlFieldWidth)")
-        NSLog("  Plus button: x=\(plusButtonX), width=\(buttonSize)")
-        NSLog("  Gap between them: \(plusButtonX - (xOffset + urlFieldWidth))")
         let urlFieldHeight: CGFloat = 32  // Taller for better vertical centering
         let urlFieldY = (toolbarHeight - urlFieldHeight) / 2
         
@@ -265,7 +259,7 @@ class WebViewController: NSViewController {
         // New bubble button - add AFTER address bar so it's on top (clickable)
         newBubbleButton.frame = NSRect(x: plusButtonX, y: buttonY, width: buttonSize, height: buttonSize)
         newBubbleButton.autoresizingMask = [.minXMargin]  // Stay on right side
-        newBubbleButton.image = NSImage(systemSymbolName: "plus.circle", accessibilityDescription: "New Bubble")
+        newBubbleButton.image = NSImage(systemSymbolName: "plus", accessibilityDescription: "New Bubble")
         newBubbleButton.imagePosition = .imageOnly
         newBubbleButton.isBordered = false
         newBubbleButton.bezelStyle = .regularSquare

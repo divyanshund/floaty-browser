@@ -299,9 +299,9 @@ class BubblePreviewView: NSView {
                     glassView.layer?.backgroundColor = NSColor(white: 0.0, alpha: 0.32).cgColor
                 }
                 
-                // Add visible frosted glass stroke for clear definition
+                // Add subtle frosted glass stroke for definition
                 glassView.layer?.borderWidth = 1.0
-                glassView.layer?.borderColor = NSColor(white: 1.0, alpha: 0.5).cgColor
+                glassView.layer?.borderColor = NSColor(white: 1.0, alpha: 0.25).cgColor
                 
                 addSubview(glassView, positioned: .below, relativeTo: iconLabel)
                 frostedGlassView = glassView
@@ -315,7 +315,7 @@ class BubblePreviewView: NSView {
             } else {
                 frostedGlassView?.layer?.backgroundColor = NSColor(white: 0.0, alpha: 0.32).cgColor
             }
-            frostedGlassView?.layer?.borderColor = NSColor(white: 1.0, alpha: 0.5).cgColor
+            frostedGlassView?.layer?.borderColor = NSColor(white: 1.0, alpha: 0.25).cgColor
             
             iconLabel.textColor = .labelColor
         } else {

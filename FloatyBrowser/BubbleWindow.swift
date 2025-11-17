@@ -38,40 +38,40 @@ enum BubbleAppearance: String, CaseIterable {
         NotificationCenter.default.post(name: NSNotification.Name("BubbleAppearanceChanged"), object: nil)
     }
     
-    // Define gradient colors for each theme
+    // Define gradient colors for each theme (all with translucency for premium feel)
     var gradientColors: (NSColor, NSColor)? {
         switch self {
         case .frostedGlass:
             return nil // Will use NSVisualEffectView
         case .oceanBlue:
             return (
-                NSColor(calibratedRed: 0.3, green: 0.6, blue: 1.0, alpha: 0.95),
-                NSColor(calibratedRed: 0.2, green: 0.4, blue: 0.8, alpha: 0.95)
+                NSColor(calibratedRed: 0.3, green: 0.6, blue: 1.0, alpha: 0.90),
+                NSColor(calibratedRed: 0.2, green: 0.4, blue: 0.8, alpha: 0.90)
             )
         case .sunset:
             return (
-                NSColor(calibratedRed: 1.0, green: 0.6, blue: 0.4, alpha: 0.95),
-                NSColor(calibratedRed: 0.95, green: 0.35, blue: 0.55, alpha: 0.95)
+                NSColor(calibratedRed: 1.0, green: 0.6, blue: 0.4, alpha: 0.90),
+                NSColor(calibratedRed: 0.95, green: 0.35, blue: 0.55, alpha: 0.90)
             )
         case .forest:
             return (
-                NSColor(calibratedRed: 0.2, green: 0.7, blue: 0.5, alpha: 0.95),
-                NSColor(calibratedRed: 0.15, green: 0.5, blue: 0.35, alpha: 0.95)
+                NSColor(calibratedRed: 0.2, green: 0.7, blue: 0.5, alpha: 0.90),
+                NSColor(calibratedRed: 0.15, green: 0.5, blue: 0.35, alpha: 0.90)
             )
         case .purpleDream:
             return (
-                NSColor(calibratedRed: 0.7, green: 0.4, blue: 0.95, alpha: 0.95),
-                NSColor(calibratedRed: 0.5, green: 0.3, blue: 0.75, alpha: 0.95)
+                NSColor(calibratedRed: 0.7, green: 0.4, blue: 0.95, alpha: 0.90),
+                NSColor(calibratedRed: 0.5, green: 0.3, blue: 0.75, alpha: 0.90)
             )
         case .roseGold:
             return (
-                NSColor(calibratedRed: 0.95, green: 0.7, blue: 0.75, alpha: 0.95),
-                NSColor(calibratedRed: 0.85, green: 0.5, blue: 0.55, alpha: 0.95)
+                NSColor(calibratedRed: 0.95, green: 0.7, blue: 0.75, alpha: 0.90),
+                NSColor(calibratedRed: 0.85, green: 0.5, blue: 0.55, alpha: 0.90)
             )
         case .midnight:
             return (
-                NSColor(calibratedRed: 0.15, green: 0.15, blue: 0.25, alpha: 0.95),
-                NSColor(calibratedRed: 0.1, green: 0.1, blue: 0.15, alpha: 0.95)
+                NSColor(calibratedRed: 0.15, green: 0.15, blue: 0.25, alpha: 0.90),
+                NSColor(calibratedRed: 0.1, green: 0.1, blue: 0.15, alpha: 0.90)
             )
         }
     }
@@ -496,9 +496,9 @@ class BubbleView: NSView {
                     glassView.layer?.backgroundColor = NSColor(white: 0.0, alpha: 0.32).cgColor
                 }
                 
-                // Add visible frosted glass stroke for clear definition
+                // Add subtle frosted glass stroke for definition
                 glassView.layer?.borderWidth = 1.0
-                glassView.layer?.borderColor = NSColor(white: 1.0, alpha: 0.5).cgColor
+                glassView.layer?.borderColor = NSColor(white: 1.0, alpha: 0.25).cgColor
                 
                 // Insert at the bottom
                 addSubview(glassView, positioned: .below, relativeTo: iconLabel)
@@ -513,7 +513,7 @@ class BubbleView: NSView {
             } else {
                 frostedGlassView?.layer?.backgroundColor = NSColor(white: 0.0, alpha: 0.32).cgColor
             }
-            frostedGlassView?.layer?.borderColor = NSColor(white: 1.0, alpha: 0.5).cgColor
+            frostedGlassView?.layer?.borderColor = NSColor(white: 1.0, alpha: 0.25).cgColor
             
             iconLabel.textColor = .labelColor
         } else {

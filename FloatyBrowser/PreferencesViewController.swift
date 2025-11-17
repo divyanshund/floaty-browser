@@ -294,14 +294,14 @@ class BubblePreviewView: NSView {
                 // Add tinted overlay for better visibility (same as actual bubble)
                 let isDarkMode = NSApp.effectiveAppearance.name == .darkAqua
                 if isDarkMode {
-                    glassView.layer?.backgroundColor = NSColor(white: 1.0, alpha: 0.15).cgColor
+                    glassView.layer?.backgroundColor = NSColor(white: 1.0, alpha: 0.22).cgColor
                 } else {
-                    glassView.layer?.backgroundColor = NSColor(white: 0.0, alpha: 0.25).cgColor
+                    glassView.layer?.backgroundColor = NSColor(white: 0.0, alpha: 0.32).cgColor
                 }
                 
-                // Add subtle border
-                glassView.layer?.borderWidth = 0.5
-                glassView.layer?.borderColor = NSColor(white: 0.5, alpha: 0.3).cgColor
+                // Add visible frosted glass stroke for clear definition
+                glassView.layer?.borderWidth = 1.0
+                glassView.layer?.borderColor = NSColor(white: 1.0, alpha: 0.5).cgColor
                 
                 addSubview(glassView, positioned: .below, relativeTo: iconLabel)
                 frostedGlassView = glassView
@@ -311,10 +311,11 @@ class BubblePreviewView: NSView {
             // Update colors when appearance changes
             let isDarkMode = NSApp.effectiveAppearance.name == .darkAqua
             if isDarkMode {
-                frostedGlassView?.layer?.backgroundColor = NSColor(white: 1.0, alpha: 0.15).cgColor
+                frostedGlassView?.layer?.backgroundColor = NSColor(white: 1.0, alpha: 0.22).cgColor
             } else {
-                frostedGlassView?.layer?.backgroundColor = NSColor(white: 0.0, alpha: 0.25).cgColor
+                frostedGlassView?.layer?.backgroundColor = NSColor(white: 0.0, alpha: 0.32).cgColor
             }
+            frostedGlassView?.layer?.borderColor = NSColor(white: 1.0, alpha: 0.5).cgColor
             
             iconLabel.textColor = .labelColor
         } else {

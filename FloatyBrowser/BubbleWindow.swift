@@ -490,15 +490,15 @@ class BubbleView: NSView {
                 let isDarkMode = NSApp.effectiveAppearance.name == .darkAqua
                 if isDarkMode {
                     // In dark mode: lighter tint for visibility against dark backgrounds
-                    glassView.layer?.backgroundColor = NSColor(white: 1.0, alpha: 0.15).cgColor
+                    glassView.layer?.backgroundColor = NSColor(white: 1.0, alpha: 0.22).cgColor
                 } else {
                     // In light mode: darker tint for visibility against light backgrounds
-                    glassView.layer?.backgroundColor = NSColor(white: 0.0, alpha: 0.25).cgColor
+                    glassView.layer?.backgroundColor = NSColor(white: 0.0, alpha: 0.32).cgColor
                 }
                 
-                // Add subtle border for definition
-                glassView.layer?.borderWidth = 0.5
-                glassView.layer?.borderColor = NSColor(white: 0.5, alpha: 0.3).cgColor
+                // Add visible frosted glass stroke for clear definition
+                glassView.layer?.borderWidth = 1.0
+                glassView.layer?.borderColor = NSColor(white: 1.0, alpha: 0.5).cgColor
                 
                 // Insert at the bottom
                 addSubview(glassView, positioned: .below, relativeTo: iconLabel)
@@ -509,10 +509,11 @@ class BubbleView: NSView {
             // Update colors when appearance changes
             let isDarkMode = NSApp.effectiveAppearance.name == .darkAqua
             if isDarkMode {
-                frostedGlassView?.layer?.backgroundColor = NSColor(white: 1.0, alpha: 0.15).cgColor
+                frostedGlassView?.layer?.backgroundColor = NSColor(white: 1.0, alpha: 0.22).cgColor
             } else {
-                frostedGlassView?.layer?.backgroundColor = NSColor(white: 0.0, alpha: 0.25).cgColor
+                frostedGlassView?.layer?.backgroundColor = NSColor(white: 0.0, alpha: 0.32).cgColor
             }
+            frostedGlassView?.layer?.borderColor = NSColor(white: 1.0, alpha: 0.5).cgColor
             
             iconLabel.textColor = .labelColor
         } else {

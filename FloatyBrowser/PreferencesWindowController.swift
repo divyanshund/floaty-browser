@@ -40,27 +40,23 @@ class PreferencesWindowController: NSWindowController {
     private func setupTabbedInterface() {
         guard let window = window else { return }
         
-        // Create visual effect view as the base content view
-        let visualEffectView = NSVisualEffectView()
-        visualEffectView.material = .sidebar
-        visualEffectView.blendingMode = .behindWindow
-        visualEffectView.state = .active
-        window.contentView = visualEffectView
-        
         // Create tab view controller
         tabViewController = NSTabViewController()
         tabViewController.tabStyle = .toolbar
         
-        // Create tab items
-        let appearanceTab = NSTabViewItem(viewController: AppearancePreferencesViewController())
+        // Create tab items with transparent backgrounds
+        let appearanceVC = AppearancePreferencesViewController()
+        let appearanceTab = NSTabViewItem(viewController: appearanceVC)
         appearanceTab.label = "Appearance"
         appearanceTab.image = NSImage(systemSymbolName: "paintbrush.fill", accessibilityDescription: "Appearance")
         
-        let searchTab = NSTabViewItem(viewController: SearchPreferencesViewController())
+        let searchVC = SearchPreferencesViewController()
+        let searchTab = NSTabViewItem(viewController: searchVC)
         searchTab.label = "Search"
         searchTab.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: "Search")
         
-        let generalTab = NSTabViewItem(viewController: GeneralPreferencesViewController())
+        let generalVC = GeneralPreferencesViewController()
+        let generalTab = NSTabViewItem(viewController: generalVC)
         generalTab.label = "General"
         generalTab.image = NSImage(systemSymbolName: "gearshape.fill", accessibilityDescription: "General")
         
@@ -69,8 +65,30 @@ class PreferencesWindowController: NSWindowController {
         tabViewController.addTabViewItem(searchTab)
         tabViewController.addTabViewItem(generalTab)
         
-        // Set as content view controller (will add tab view to visual effect view)
+        // Set as content view controller
         window.contentViewController = tabViewController
+        
+        // CRITICAL: Make tab views transparent to show visual effect behind
+        // Must happen after contentViewController is set
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self, let window = self.window else { return }
+            
+            // Create visual effect view with proper frame
+            let visualEffectView = NSVisualEffectView(frame: window.contentView!.bounds)
+            visualEffectView.autoresizingMask = [.width, .height]
+            visualEffectView.material = .sidebar
+            visualEffectView.blendingMode = .behindWindow
+            visualEffectView.state = .active
+            
+            // Insert behind all content
+            window.contentView?.addSubview(visualEffectView, positioned: .below, relativeTo: nil)
+            
+            // Make tab view controller's view transparent
+            if let tabView = self.tabViewController.view.subviews.first(where: { $0 is NSTabView }) as? NSTabView {
+                tabView.drawsBackground = false
+            }
+            self.tabViewController.view.layer?.backgroundColor = .clear
+        }
     }
     
     override func windowDidLoad() {

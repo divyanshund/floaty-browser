@@ -76,7 +76,7 @@ class PreferencesWindowController: NSWindowController {
             // Create visual effect view with proper frame
             let visualEffectView = NSVisualEffectView(frame: window.contentView!.bounds)
             visualEffectView.autoresizingMask = [.width, .height]
-            visualEffectView.material = .sidebar
+            visualEffectView.material = .hudWindow  // More frosted than .sidebar
             visualEffectView.blendingMode = .behindWindow
             visualEffectView.state = .active
             

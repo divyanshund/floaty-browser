@@ -9,12 +9,12 @@ import Cocoa
 
 class PreferencesWindowController: NSWindowController {
     
-    private var preferencesVC: PreferencesViewController!
+    private var tabViewController: NSTabViewController!
     
     convenience init() {
-        // Create the preferences window
+        // Create the preferences window with translucent background
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 600, height: 400),
+            contentRect: NSRect(x: 0, y: 0, width: 600, height: 450),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -24,19 +24,61 @@ class PreferencesWindowController: NSWindowController {
         window.center()
         window.isReleasedWhenClosed = false
         
+        // Make window translucent with frosted glass effect
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        
         // Initialize with the window
         self.init(window: window)
         
-        // Create and set the view controller
-        preferencesVC = PreferencesViewController()
-        window.contentViewController = preferencesVC
+        // Create tabbed interface
+        setupTabbedInterface()
         
-        NSLog("✅ PreferencesWindowController: Initialized")
+        NSLog("✅ PreferencesWindowController: Initialized with tabbed UI")
+    }
+    
+    private func setupTabbedInterface() {
+        guard let window = window else { return }
+        
+        // Create tab view controller
+        tabViewController = NSTabViewController()
+        tabViewController.tabStyle = .toolbar
+        
+        // Create translucent background view
+        let backgroundView = NSVisualEffectView(frame: window.contentView!.bounds)
+        backgroundView.material = .sidebar
+        backgroundView.blendingMode = .behindWindow
+        backgroundView.state = .active
+        backgroundView.autoresizingMask = [.width, .height]
+        
+        // Add background to window
+        window.contentView?.addSubview(backgroundView, positioned: .below, relativeTo: nil)
+        
+        // Create tab items
+        let appearanceTab = NSTabViewItem(viewController: AppearancePreferencesViewController())
+        appearanceTab.label = "Appearance"
+        appearanceTab.image = NSImage(systemSymbolName: "paintbrush.fill", accessibilityDescription: "Appearance")
+        
+        let searchTab = NSTabViewItem(viewController: SearchPreferencesViewController())
+        searchTab.label = "Search"
+        searchTab.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: "Search")
+        
+        let generalTab = NSTabViewItem(viewController: GeneralPreferencesViewController())
+        generalTab.label = "General"
+        generalTab.image = NSImage(systemSymbolName: "gearshape.fill", accessibilityDescription: "General")
+        
+        // Add tabs
+        tabViewController.addTabViewItem(appearanceTab)
+        tabViewController.addTabViewItem(searchTab)
+        tabViewController.addTabViewItem(generalTab)
+        
+        // Set as content view controller
+        window.contentViewController = tabViewController
     }
     
     override func windowDidLoad() {
         super.windowDidLoad()
-        NSLog("🪟 PreferencesWindowController: Window loaded")
+        NSLog("🪟 PreferencesWindowController: Window loaded with tabs")
     }
 }
 

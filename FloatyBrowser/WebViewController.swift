@@ -437,7 +437,7 @@ class WebViewController: NSViewController {
     /// Performs a search using the saved search engine
     private func performSearch(query: String) {
         // Get the current search engine from preferences
-        let searchEngine = PreferencesViewController.getCurrentSearchEngine()
+        let searchEngine = SearchPreferencesViewController.getCurrentSearchEngine()
         
         // Encode the query for URL
         guard let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {

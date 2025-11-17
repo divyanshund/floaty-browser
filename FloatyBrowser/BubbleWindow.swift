@@ -302,6 +302,9 @@ class BubbleWindow: NSPanel {
     }
     
     private func triggerSnapHaptic() {
+        // Check if haptics are enabled in settings
+        guard GeneralPreferencesViewController.isHapticsEnabled() else { return }
+        
         // Subtle haptic feedback for edge snap (available on MacBook trackpads)
         NSHapticFeedbackManager.defaultPerformer.perform(
             .alignment,

@@ -29,22 +29,6 @@ class BrowserStyleTextField: NSTextField {
         layer?.borderColor = NSColor.clear.cgColor
     }
     
-    override func becomeFirstResponder() -> Bool {
-        let result = super.becomeFirstResponder()
-        if result {
-            animateFocusGlow(isFocused: true)
-        }
-        return result
-    }
-    
-    override func resignFirstResponder() -> Bool {
-        let result = super.resignFirstResponder()
-        if result {
-            animateFocusGlow(isFocused: false)
-        }
-        return result
-    }
-    
     private func animateFocusGlow(isFocused: Bool) {
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.2
@@ -69,22 +53,26 @@ class BrowserStyleTextField: NSTextField {
         // Call super to handle the click
         super.mouseDown(with: event)
         
-        // Check if we're now editing
-        if currentEditor() != nil {
-            isCurrentlyEditing = true
-            
-            // If this is the first click (wasn't editing before), select all
-            if !wasEditing {
-                if let fieldEditor = currentEditor() as? NSTextView {
+        // Select all text on first click - needs slight delay for field editor to be ready
+        if !wasEditing {
+            DispatchQueue.main.async { [weak self] in
+                if let fieldEditor = self?.currentEditor() as? NSTextView {
                     fieldEditor.selectedRange = NSRange(location: 0, length: fieldEditor.string.count)
                 }
             }
         }
     }
     
+    override func textDidBeginEditing(_ notification: Notification) {
+        super.textDidBeginEditing(notification)
+        isCurrentlyEditing = true
+        animateFocusGlow(isFocused: true)
+    }
+    
     override func textDidEndEditing(_ notification: Notification) {
         super.textDidEndEditing(notification)
         isCurrentlyEditing = false
+        animateFocusGlow(isFocused: false)
     }
 }
 

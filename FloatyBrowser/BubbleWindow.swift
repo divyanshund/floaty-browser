@@ -431,9 +431,12 @@ class BubbleView: NSView {
         self.gradientLayer = gradient
         
         // Icon label (emoji fallback) - centered properly
-        iconLabel.font = NSFont.systemFont(ofSize: 28)
+        // NSTextField doesn't center text vertically by default, so we offset it manually
+        let iconSize: CGFloat = 28
+        let verticalOffset: CGFloat = 4  // Push down slightly to visually center
+        iconLabel.font = NSFont.systemFont(ofSize: iconSize)
         iconLabel.alignment = .center
-        iconLabel.frame = bounds
+        iconLabel.frame = NSRect(x: 0, y: verticalOffset, width: bounds.width, height: bounds.height)
         iconLabel.autoresizingMask = [.width, .height]
         iconLabel.textColor = .white
         iconLabel.drawsBackground = false

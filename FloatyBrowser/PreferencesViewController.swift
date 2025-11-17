@@ -262,10 +262,12 @@ class BubblePreviewView: NSView {
         self.gradientLayer = gradient
         
         // Icon label
+        // NSTextField doesn't center text vertically by default, so we offset it manually
+        let verticalOffset: CGFloat = 5  // Push down slightly to visually center
         iconLabel = NSTextField(labelWithString: "🌐")
         iconLabel.font = NSFont.systemFont(ofSize: 32)
         iconLabel.alignment = .center
-        iconLabel.frame = bounds
+        iconLabel.frame = NSRect(x: 0, y: verticalOffset, width: bounds.width, height: bounds.height)
         iconLabel.textColor = .white
         iconLabel.drawsBackground = false
         iconLabel.isBezeled = false

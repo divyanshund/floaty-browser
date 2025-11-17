@@ -50,27 +50,26 @@ class AppearancePreferencesViewController: NSViewController {
     }
     
     private func setupUI() {
-        let leftMargin: CGFloat = 60
-        let contentWidth: CGFloat = 480  // Fixed width for consistency
-        let topStart: CGFloat = 360
+        let margin: CGFloat = 60
+        var yPos: CGFloat = 360
         
         // Title
         let title = NSTextField(labelWithString: "Bubble Appearance")
-        title.frame = NSRect(x: leftMargin, y: topStart, width: contentWidth, height: 32)
+        title.frame = NSRect(x: margin, y: yPos, width: 480, height: 32)
         title.font = NSFont.systemFont(ofSize: 26, weight: .bold)
-        title.alignment = .left
         view.addSubview(title)
+        yPos -= 55
         
         // Description
         let description = NSTextField(labelWithString: "Choose your bubble style:")
-        description.frame = NSRect(x: leftMargin, y: topStart - 55, width: contentWidth, height: 20)
+        description.frame = NSRect(x: margin, y: yPos, width: 450, height: 20)
         description.font = NSFont.systemFont(ofSize: 13)
         description.textColor = .secondaryLabelColor
-        description.alignment = .left
         view.addSubview(description)
+        yPos -= 45
         
         // Appearance popup
-        appearancePopup = NSPopUpButton(frame: NSRect(x: leftMargin, y: topStart - 95, width: 220, height: 28))
+        appearancePopup = NSPopUpButton(frame: NSRect(x: margin, y: yPos, width: 220, height: 28))
         appearancePopup.font = NSFont.systemFont(ofSize: 13)
         appearancePopup.removeAllItems()
         
@@ -81,20 +80,21 @@ class AppearancePreferencesViewController: NSViewController {
         appearancePopup.target = self
         appearancePopup.action = #selector(appearanceChanged)
         view.addSubview(appearancePopup)
+        yPos -= 60
         
         // Preview label
         let previewLabel = NSTextField(labelWithString: "Preview")
-        previewLabel.frame = NSRect(x: leftMargin, y: topStart - 145, width: 100, height: 20)
+        previewLabel.frame = NSRect(x: margin, y: yPos, width: 450, height: 20)
         previewLabel.font = NSFont.systemFont(ofSize: 13, weight: .medium)
         previewLabel.textColor = .secondaryLabelColor
-        previewLabel.alignment = .left
         view.addSubview(previewLabel)
+        yPos -= 30
         
         // Bubble preview
         let previewSize: CGFloat = 100
         bubblePreview = BubblePreviewView(frame: NSRect(
-            x: leftMargin,
-            y: topStart - 265,
+            x: margin,
+            y: yPos,
             width: previewSize,
             height: previewSize
         ))
@@ -150,28 +150,26 @@ class SearchPreferencesViewController: NSViewController {
     }
     
     private func setupUI() {
-        let leftMargin: CGFloat = 60
-        let contentWidth: CGFloat = 480
-        let topStart: CGFloat = 360
+        let margin: CGFloat = 60
+        var yPos: CGFloat = 360
         
         // Title
         let title = NSTextField(labelWithString: "Default Search Engine")
-        title.frame = NSRect(x: leftMargin, y: topStart, width: contentWidth, height: 32)
+        title.frame = NSRect(x: margin, y: yPos, width: 480, height: 32)
         title.font = NSFont.systemFont(ofSize: 26, weight: .bold)
-        title.alignment = .left
         view.addSubview(title)
+        yPos -= 55
         
-        // Description - properly configured wrapping label
-        let description = createWrappingLabel(
-            text: "Choose which search engine to use when searching from the address bar.",
-            frame: NSRect(x: leftMargin, y: topStart - 75, width: contentWidth, height: 50),
-            fontSize: 13
-        )
-        description.textColor = .secondaryLabelColor
-        view.addSubview(description)
+        // Description
+        let desc = NSTextField(labelWithString: "Choose which search engine to use when searching from the address bar.")
+        desc.frame = NSRect(x: margin, y: yPos, width: 450, height: 20)
+        desc.font = NSFont.systemFont(ofSize: 13)
+        desc.textColor = .secondaryLabelColor
+        view.addSubview(desc)
+        yPos -= 45
         
         // Search engine dropdown
-        searchEnginePopup = NSPopUpButton(frame: NSRect(x: leftMargin, y: topStart - 135, width: 200, height: 28))
+        searchEnginePopup = NSPopUpButton(frame: NSRect(x: margin, y: yPos, width: 200, height: 28))
         searchEnginePopup.font = NSFont.systemFont(ofSize: 13)
         searchEnginePopup.removeAllItems()
         
@@ -182,47 +180,30 @@ class SearchPreferencesViewController: NSViewController {
         searchEnginePopup.target = self
         searchEnginePopup.action = #selector(searchEngineChanged)
         view.addSubview(searchEnginePopup)
+        yPos -= 60
         
-        // Preview section title
+        // Preview label
         let previewTitle = NSTextField(labelWithString: "Preview")
-        previewTitle.frame = NSRect(x: leftMargin, y: topStart - 185, width: contentWidth, height: 20)
+        previewTitle.frame = NSRect(x: margin, y: yPos, width: 450, height: 20)
         previewTitle.font = NSFont.systemFont(ofSize: 13, weight: .medium)
         previewTitle.textColor = .secondaryLabelColor
-        previewTitle.alignment = .left
         view.addSubview(previewTitle)
+        yPos -= 30
         
-        // Preview URL (monospaced font for URL)
+        // Preview URL
         previewLabel = NSTextField(labelWithString: "")
-        previewLabel.frame = NSRect(x: leftMargin, y: topStart - 215, width: contentWidth, height: 22)
+        previewLabel.frame = NSRect(x: margin, y: yPos, width: 450, height: 22)
         previewLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
         previewLabel.textColor = NSColor.systemBlue.withAlphaComponent(0.8)
-        previewLabel.alignment = .left
         previewLabel.lineBreakMode = .byTruncatingMiddle
         previewLabel.isBezeled = false
         previewLabel.isEditable = false
         previewLabel.isSelectable = true
+        previewLabel.drawsBackground = false
         previewLabel.backgroundColor = .clear
         view.addSubview(previewLabel)
         
         NSLog("✅ SearchPreferencesViewController: UI setup complete")
-    }
-    
-    private func createWrappingLabel(text: String, frame: NSRect, fontSize: CGFloat) -> NSTextField {
-        let label = NSTextField(frame: frame)
-        label.stringValue = text
-        label.font = NSFont.systemFont(ofSize: fontSize)
-        label.isBezeled = false
-        label.isBordered = false
-        label.isEditable = false
-        label.isSelectable = false
-        label.drawsBackground = false
-        label.backgroundColor = .clear
-        label.lineBreakMode = .byWordWrapping
-        label.maximumNumberOfLines = 0  // Allow unlimited lines
-        label.alignment = .left
-        label.cell?.wraps = true
-        label.cell?.isScrollable = false
-        return label
     }
     
     private func loadSavedSearchEngine() {
@@ -275,58 +256,41 @@ class GeneralPreferencesViewController: NSViewController {
     }
     
     private func setupUI() {
-        let leftMargin: CGFloat = 60
-        let contentWidth: CGFloat = 480
-        let topStart: CGFloat = 360
+        let margin: CGFloat = 60
+        var yPos: CGFloat = 360
         
         // Title
         let title = NSTextField(labelWithString: "General Settings")
-        title.frame = NSRect(x: leftMargin, y: topStart, width: contentWidth, height: 32)
+        title.frame = NSRect(x: margin, y: yPos, width: 480, height: 32)
         title.font = NSFont.systemFont(ofSize: 26, weight: .bold)
-        title.alignment = .left
         view.addSubview(title)
+        yPos -= 70
         
         // Haptics section header
         let hapticsHeader = NSTextField(labelWithString: "Haptic Feedback")
-        hapticsHeader.frame = NSRect(x: leftMargin, y: topStart - 70, width: contentWidth, height: 22)
+        hapticsHeader.frame = NSRect(x: margin, y: yPos, width: 480, height: 22)
         hapticsHeader.font = NSFont.systemFont(ofSize: 16, weight: .semibold)
-        hapticsHeader.alignment = .left
         view.addSubview(hapticsHeader)
+        yPos -= 35
         
         // Haptics checkbox
-        hapticsCheckbox = NSButton(checkboxWithTitle: "Enable haptic feedback when bubbles snap to screen edges", target: self, action: #selector(hapticsToggled))
-        hapticsCheckbox.frame = NSRect(x: leftMargin, y: topStart - 105, width: contentWidth, height: 18)
+        hapticsCheckbox = NSButton(checkboxWithTitle: "Enable haptic feedback when bubbles snap to edges", target: self, action: #selector(hapticsToggled))
+        hapticsCheckbox.frame = NSRect(x: margin, y: yPos, width: 450, height: 18)
         hapticsCheckbox.font = NSFont.systemFont(ofSize: 13)
         view.addSubview(hapticsCheckbox)
+        yPos -= 35
         
-        // Haptics description - properly configured wrapping label
-        let hapticsDesc = createWrappingLabel(
-            text: "Subtle tactile confirmation when dragging bubbles near screen edges. This feature is available on MacBook trackpads.",
-            frame: NSRect(x: leftMargin + 20, y: topStart - 160, width: contentWidth - 20, height: 50),
-            fontSize: 12
-        )
-        hapticsDesc.textColor = .secondaryLabelColor
+        // Haptics description (shorter, cleaner text)
+        let hapticsDesc = NSTextField(labelWithString: "Subtle tactile confirmation on MacBook trackpads.")
+        hapticsDesc.frame = NSRect(x: margin + 20, y: yPos, width: 430, height: 20)
+        hapticsDesc.font = NSFont.systemFont(ofSize: 12)
+        hapticsDesc.textColor = .tertiaryLabelColor
+        hapticsDesc.drawsBackground = false
+        hapticsDesc.isBezeled = false
+        hapticsDesc.isBordered = false
         view.addSubview(hapticsDesc)
         
         NSLog("✅ GeneralPreferencesViewController: UI setup complete")
-    }
-    
-    private func createWrappingLabel(text: String, frame: NSRect, fontSize: CGFloat) -> NSTextField {
-        let label = NSTextField(frame: frame)
-        label.stringValue = text
-        label.font = NSFont.systemFont(ofSize: fontSize)
-        label.isBezeled = false
-        label.isBordered = false
-        label.isEditable = false
-        label.isSelectable = false
-        label.drawsBackground = false
-        label.backgroundColor = .clear
-        label.lineBreakMode = .byWordWrapping
-        label.maximumNumberOfLines = 0  // Allow unlimited lines
-        label.alignment = .left
-        label.cell?.wraps = true
-        label.cell?.isScrollable = false
-        return label
     }
     
     private func loadSavedSettings() {

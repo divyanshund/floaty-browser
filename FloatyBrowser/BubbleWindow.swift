@@ -7,6 +7,76 @@
 
 import Cocoa
 
+// MARK: - Bubble Appearance
+
+enum BubbleAppearance: String, CaseIterable {
+    case frostedGlass = "Frosted Glass"
+    case oceanBlue = "Ocean Blue"
+    case sunset = "Sunset"
+    case forest = "Forest"
+    case purpleDream = "Purple Dream"
+    case roseGold = "Rose Gold"
+    case midnight = "Midnight"
+    
+    var userDefaultsKey: String {
+        return "bubbleAppearance"
+    }
+    
+    static func getCurrentAppearance() -> BubbleAppearance {
+        if let savedAppearance = UserDefaults.standard.string(forKey: "bubbleAppearance"),
+           let appearance = BubbleAppearance(rawValue: savedAppearance) {
+            return appearance
+        }
+        return .frostedGlass // Default
+    }
+    
+    func saveAsCurrent() {
+        UserDefaults.standard.set(self.rawValue, forKey: "bubbleAppearance")
+        UserDefaults.standard.synchronize()
+        
+        // Post notification to update all bubbles
+        NotificationCenter.default.post(name: NSNotification.Name("BubbleAppearanceChanged"), object: nil)
+    }
+    
+    // Define gradient colors for each theme
+    var gradientColors: (NSColor, NSColor)? {
+        switch self {
+        case .frostedGlass:
+            return nil // Will use NSVisualEffectView
+        case .oceanBlue:
+            return (
+                NSColor(calibratedRed: 0.3, green: 0.6, blue: 1.0, alpha: 0.95),
+                NSColor(calibratedRed: 0.2, green: 0.4, blue: 0.8, alpha: 0.95)
+            )
+        case .sunset:
+            return (
+                NSColor(calibratedRed: 1.0, green: 0.6, blue: 0.4, alpha: 0.95),
+                NSColor(calibratedRed: 0.95, green: 0.35, blue: 0.55, alpha: 0.95)
+            )
+        case .forest:
+            return (
+                NSColor(calibratedRed: 0.2, green: 0.7, blue: 0.5, alpha: 0.95),
+                NSColor(calibratedRed: 0.15, green: 0.5, blue: 0.35, alpha: 0.95)
+            )
+        case .purpleDream:
+            return (
+                NSColor(calibratedRed: 0.7, green: 0.4, blue: 0.95, alpha: 0.95),
+                NSColor(calibratedRed: 0.5, green: 0.3, blue: 0.75, alpha: 0.95)
+            )
+        case .roseGold:
+            return (
+                NSColor(calibratedRed: 0.95, green: 0.7, blue: 0.75, alpha: 0.95),
+                NSColor(calibratedRed: 0.85, green: 0.5, blue: 0.55, alpha: 0.95)
+            )
+        case .midnight:
+            return (
+                NSColor(calibratedRed: 0.15, green: 0.15, blue: 0.25, alpha: 0.95),
+                NSColor(calibratedRed: 0.1, green: 0.1, blue: 0.15, alpha: 0.95)
+            )
+        }
+    }
+}
+
 class BubbleWindow: NSPanel {
     let bubbleId: UUID
     var currentURL: String
@@ -287,6 +357,8 @@ class BubbleView: NSView {
     private weak var bubbleWindow: BubbleWindow?
     private var innerGlowLayer: CALayer?
     private var closeButton: NSButton?
+    private var gradientLayer: CAGradientLayer?
+    private var frostedGlassView: NSVisualEffectView?
     
     init(frame frameRect: NSRect, owner: BubbleWindow) {
         self.bubbleWindow = owner
@@ -294,6 +366,15 @@ class BubbleView: NSView {
         setupView()
         setupTrackingArea()
         setupInnerGlowLayer()
+        applyCurrentAppearance()
+        
+        // Listen for appearance changes
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appearanceDidChange),
+            name: NSNotification.Name("BubbleAppearanceChanged"),
+            object: nil
+        )
     }
     
     required init?(coder: NSCoder) {
@@ -340,18 +421,14 @@ class BubbleView: NSView {
         layer?.shadowOffset = CGSize.zero
         layer?.shadowRadius = 8  // Subtle blur
         
-        // Background gradient
-        let gradientLayer = CAGradientLayer()
-        gradientLayer.frame = bounds
-        gradientLayer.cornerRadius = bounds.width / 2
-        gradientLayer.masksToBounds = true
-        gradientLayer.colors = [
-            NSColor(calibratedRed: 0.3, green: 0.6, blue: 1.0, alpha: 0.95).cgColor,
-            NSColor(calibratedRed: 0.2, green: 0.4, blue: 0.8, alpha: 0.95).cgColor
-        ]
-        gradientLayer.startPoint = CGPoint(x: 0, y: 0)
-        gradientLayer.endPoint = CGPoint(x: 1, y: 1)
-        layer?.insertSublayer(gradientLayer, at: 0)
+        // Background will be set by applyCurrentAppearance()
+        // Just create the gradient layer placeholder
+        let gradient = CAGradientLayer()
+        gradient.frame = bounds
+        gradient.cornerRadius = bounds.width / 2
+        gradient.masksToBounds = true
+        layer?.insertSublayer(gradient, at: 0)
+        self.gradientLayer = gradient
         
         // Icon label (emoji fallback) - centered properly
         iconLabel.font = NSFont.systemFont(ofSize: 28)
@@ -382,6 +459,47 @@ class BubbleView: NSView {
         iconImageView.layer?.magnificationFilter = .linear  // High-quality scaling
         iconImageView.isHidden = true
         addSubview(iconImageView)
+    }
+    
+    @objc private func appearanceDidChange() {
+        applyCurrentAppearance()
+    }
+    
+    private func applyCurrentAppearance() {
+        let appearance = BubbleAppearance.getCurrentAppearance()
+        
+        if appearance == .frostedGlass {
+            // Use frosted glass effect
+            gradientLayer?.isHidden = true
+            
+            if frostedGlassView == nil {
+                let glassView = NSVisualEffectView(frame: bounds)
+                glassView.material = .hudWindow
+                glassView.blendingMode = .behindWindow
+                glassView.state = .active
+                glassView.wantsLayer = true
+                glassView.layer?.cornerRadius = bounds.width / 2
+                glassView.layer?.masksToBounds = true
+                glassView.autoresizingMask = [.width, .height]
+                
+                // Insert at the bottom
+                addSubview(glassView, positioned: .below, relativeTo: iconLabel)
+                frostedGlassView = glassView
+            }
+            frostedGlassView?.isHidden = false
+            iconLabel.textColor = .labelColor
+        } else {
+            // Use gradient
+            frostedGlassView?.isHidden = true
+            gradientLayer?.isHidden = false
+            
+            if let colors = appearance.gradientColors {
+                gradientLayer?.colors = [colors.0.cgColor, colors.1.cgColor]
+                gradientLayer?.startPoint = CGPoint(x: 0, y: 0)
+                gradientLayer?.endPoint = CGPoint(x: 1, y: 1)
+            }
+            iconLabel.textColor = .white
+        }
     }
     
     private func setupInnerGlowLayer() {

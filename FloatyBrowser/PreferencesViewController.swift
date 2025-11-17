@@ -50,28 +50,30 @@ class AppearancePreferencesViewController: NSViewController {
     }
     
     private func setupUI() {
-        // MARK: - Appearance Section
+        let leftMargin: CGFloat = 60
+        let rightMargin: CGFloat = 60
+        let topStart: CGFloat = 350
         
-        // Appearance title
-        let appearanceTitle = NSTextField(labelWithString: "Bubble Appearance")
-        appearanceTitle.frame = NSRect(x: 40, y: 340, width: 300, height: 30)
-        appearanceTitle.font = NSFont.systemFont(ofSize: 20, weight: .bold)
-        appearanceTitle.alignment = .left
-        view.addSubview(appearanceTitle)
+        // Title
+        let title = NSTextField(labelWithString: "Bubble Appearance")
+        title.frame = NSRect(x: leftMargin, y: topStart, width: 400, height: 34)
+        title.font = NSFont.systemFont(ofSize: 24, weight: .bold)
+        title.alignment = .left
+        view.addSubview(title)
         
-        // Appearance description
-        let appearanceDesc = NSTextField(labelWithString: "Choose your bubble style:")
-        appearanceDesc.frame = NSRect(x: 40, y: 310, width: 300, height: 20)
-        appearanceDesc.font = NSFont.systemFont(ofSize: 13)
-        appearanceDesc.textColor = .secondaryLabelColor
-        appearanceDesc.alignment = .left
-        view.addSubview(appearanceDesc)
+        // Description
+        let description = NSTextField(labelWithString: "Choose your bubble style:")
+        description.frame = NSRect(x: leftMargin, y: topStart - 50, width: 300, height: 20)
+        description.font = NSFont.systemFont(ofSize: 14)
+        description.textColor = .secondaryLabelColor
+        description.alignment = .left
+        view.addSubview(description)
         
-        // Appearance popup
-        appearancePopup = NSPopUpButton(frame: NSRect(x: 40, y: 270, width: 200, height: 26))
+        // Appearance popup (larger, more prominent)
+        appearancePopup = NSPopUpButton(frame: NSRect(x: leftMargin, y: topStart - 90, width: 240, height: 28))
+        appearancePopup.font = NSFont.systemFont(ofSize: 13)
         appearancePopup.removeAllItems()
         
-        // Add all bubble appearances
         for appearance in BubbleAppearance.allCases {
             appearancePopup.addItem(withTitle: appearance.rawValue)
         }
@@ -80,8 +82,22 @@ class AppearancePreferencesViewController: NSViewController {
         appearancePopup.action = #selector(appearanceChanged)
         view.addSubview(appearancePopup)
         
-        // Bubble preview
-        bubblePreview = BubblePreviewView(frame: NSRect(x: 260, y: 260, width: 80, height: 80))
+        // Preview label
+        let previewLabel = NSTextField(labelWithString: "Preview:")
+        previewLabel.frame = NSRect(x: leftMargin, y: topStart - 150, width: 100, height: 20)
+        previewLabel.font = NSFont.systemFont(ofSize: 14)
+        previewLabel.textColor = .secondaryLabelColor
+        previewLabel.alignment = .left
+        view.addSubview(previewLabel)
+        
+        // Bubble preview (larger, centered)
+        let previewSize: CGFloat = 100
+        bubblePreview = BubblePreviewView(frame: NSRect(
+            x: leftMargin,
+            y: topStart - 270,
+            width: previewSize,
+            height: previewSize
+        ))
         view.addSubview(bubblePreview)
         
         NSLog("✅ AppearancePreferencesViewController: UI setup complete")
@@ -134,25 +150,31 @@ class SearchPreferencesViewController: NSViewController {
     }
     
     private func setupUI() {
+        let leftMargin: CGFloat = 60
+        let rightMargin: CGFloat = 60
+        let topStart: CGFloat = 350
+        let contentWidth: CGFloat = 600 - leftMargin - rightMargin
+        
         // Title
-        let titleLabel = NSTextField(labelWithString: "Default Search Engine")
-        titleLabel.frame = NSRect(x: 40, y: 380, width: 520, height: 30)
-        titleLabel.font = NSFont.systemFont(ofSize: 20, weight: .bold)
-        titleLabel.alignment = .left
-        view.addSubview(titleLabel)
+        let title = NSTextField(labelWithString: "Default Search Engine")
+        title.frame = NSRect(x: leftMargin, y: topStart, width: contentWidth, height: 34)
+        title.font = NSFont.systemFont(ofSize: 24, weight: .bold)
+        title.alignment = .left
+        view.addSubview(title)
         
         // Description
-        let descriptionLabel = NSTextField(labelWithString: "Choose which search engine to use when searching from the address bar:")
-        descriptionLabel.frame = NSRect(x: 40, y: 330, width: 520, height: 40)
-        descriptionLabel.font = NSFont.systemFont(ofSize: 13)
-        descriptionLabel.textColor = .secondaryLabelColor
-        descriptionLabel.alignment = .left
-        descriptionLabel.lineBreakMode = .byWordWrapping
-        descriptionLabel.maximumNumberOfLines = 2
-        view.addSubview(descriptionLabel)
+        let description = NSTextField(labelWithString: "Choose which search engine to use when searching from the address bar:")
+        description.frame = NSRect(x: leftMargin, y: topStart - 70, width: contentWidth, height: 44)
+        description.font = NSFont.systemFont(ofSize: 14)
+        description.textColor = .secondaryLabelColor
+        description.alignment = .left
+        description.lineBreakMode = .byWordWrapping
+        description.maximumNumberOfLines = 2
+        view.addSubview(description)
         
         // Search engine dropdown
-        searchEnginePopup = NSPopUpButton(frame: NSRect(x: 40, y: 280, width: 200, height: 26))
+        searchEnginePopup = NSPopUpButton(frame: NSRect(x: leftMargin, y: topStart - 120, width: 200, height: 28))
+        searchEnginePopup.font = NSFont.systemFont(ofSize: 13)
         searchEnginePopup.removeAllItems()
         
         for engine in SearchEngine.allCases {
@@ -163,20 +185,21 @@ class SearchPreferencesViewController: NSViewController {
         searchEnginePopup.action = #selector(searchEngineChanged)
         view.addSubview(searchEnginePopup)
         
-        // Preview section
-        let previewTitleLabel = NSTextField(labelWithString: "Search URL Preview:")
-        previewTitleLabel.frame = NSRect(x: 40, y: 230, width: 520, height: 20)
-        previewTitleLabel.font = NSFont.systemFont(ofSize: 13, weight: .medium)
-        previewTitleLabel.textColor = .secondaryLabelColor
-        previewTitleLabel.alignment = .left
-        view.addSubview(previewTitleLabel)
+        // Preview section title
+        let previewTitle = NSTextField(labelWithString: "Search URL Preview:")
+        previewTitle.frame = NSRect(x: leftMargin, y: topStart - 180, width: contentWidth, height: 20)
+        previewTitle.font = NSFont.systemFont(ofSize: 14)
+        previewTitle.textColor = .secondaryLabelColor
+        previewTitle.alignment = .left
+        view.addSubview(previewTitle)
         
+        // Preview URL (monospaced font for URL)
         previewLabel = NSTextField(labelWithString: "")
-        previewLabel.frame = NSRect(x: 40, y: 190, width: 520, height: 30)
-        previewLabel.font = NSFont.systemFont(ofSize: 11, weight: .regular)
-        previewLabel.textColor = .tertiaryLabelColor
+        previewLabel.frame = NSRect(x: leftMargin, y: topStart - 215, width: contentWidth, height: 24)
+        previewLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
+        previewLabel.textColor = NSColor.systemBlue.withAlphaComponent(0.8)
         previewLabel.alignment = .left
-        previewLabel.lineBreakMode = .byTruncatingTail
+        previewLabel.lineBreakMode = .byTruncatingMiddle
         previewLabel.isBezeled = false
         previewLabel.isEditable = false
         previewLabel.isSelectable = true
@@ -236,34 +259,38 @@ class GeneralPreferencesViewController: NSViewController {
     }
     
     private func setupUI() {
-        // Title
-        let titleLabel = NSTextField(labelWithString: "General Settings")
-        titleLabel.frame = NSRect(x: 40, y: 380, width: 520, height: 30)
-        titleLabel.font = NSFont.systemFont(ofSize: 20, weight: .bold)
-        titleLabel.alignment = .left
-        view.addSubview(titleLabel)
+        let leftMargin: CGFloat = 60
+        let rightMargin: CGFloat = 60
+        let topStart: CGFloat = 350
+        let contentWidth: CGFloat = 600 - leftMargin - rightMargin
         
-        // Haptics section
-        let hapticsTitle = NSTextField(labelWithString: "Haptic Feedback")
-        hapticsTitle.frame = NSRect(x: 40, y: 330, width: 520, height: 20)
-        hapticsTitle.font = NSFont.systemFont(ofSize: 15, weight: .semibold)
-        hapticsTitle.alignment = .left
-        view.addSubview(hapticsTitle)
+        // Title
+        let title = NSTextField(labelWithString: "General Settings")
+        title.frame = NSRect(x: leftMargin, y: topStart, width: contentWidth, height: 34)
+        title.font = NSFont.systemFont(ofSize: 24, weight: .bold)
+        title.alignment = .left
+        view.addSubview(title)
+        
+        // Haptics section header
+        let hapticsHeader = NSTextField(labelWithString: "Haptic Feedback")
+        hapticsHeader.frame = NSRect(x: leftMargin, y: topStart - 70, width: contentWidth, height: 24)
+        hapticsHeader.font = NSFont.systemFont(ofSize: 17, weight: .semibold)
+        hapticsHeader.alignment = .left
+        view.addSubview(hapticsHeader)
         
         // Haptics checkbox
         hapticsCheckbox = NSButton(checkboxWithTitle: "Enable haptic feedback when bubbles snap to screen edges", target: self, action: #selector(hapticsToggled))
-        hapticsCheckbox.frame = NSRect(x: 40, y: 290, width: 520, height: 20)
+        hapticsCheckbox.frame = NSRect(x: leftMargin, y: topStart - 110, width: contentWidth, height: 18)
         hapticsCheckbox.font = NSFont.systemFont(ofSize: 13)
         view.addSubview(hapticsCheckbox)
         
-        // Haptics description
-        let hapticsDesc = NSTextField(labelWithString: "Subtle tactile confirmation when dragging bubbles near screen edges (MacBook only)")
-        hapticsDesc.frame = NSRect(x: 60, y: 250, width: 500, height: 30)
-        hapticsDesc.font = NSFont.systemFont(ofSize: 11)
+        // Haptics description (properly wrapped)
+        let hapticsDesc = NSTextField(wrappingLabelWithString: "Subtle tactile confirmation when dragging bubbles near screen edges. This feature is available on MacBook trackpads.")
+        hapticsDesc.frame = NSRect(x: leftMargin + 20, y: topStart - 160, width: contentWidth - 20, height: 40)
+        hapticsDesc.font = NSFont.systemFont(ofSize: 12)
         hapticsDesc.textColor = .secondaryLabelColor
         hapticsDesc.alignment = .left
         hapticsDesc.lineBreakMode = .byWordWrapping
-        hapticsDesc.maximumNumberOfLines = 2
         view.addSubview(hapticsDesc)
         
         NSLog("✅ GeneralPreferencesViewController: UI setup complete")
@@ -337,9 +364,10 @@ class BubblePreviewView: NSView {
         
         // Icon label
         // NSTextField doesn't center text vertically by default, so we offset it manually
-        let verticalOffset: CGFloat = -10  // Push down to visually center (negative moves content down)
+        let iconSize: CGFloat = bounds.width > 85 ? 40 : 32  // Larger icon for bigger preview
+        let verticalOffset: CGFloat = bounds.width > 85 ? -12 : -10  // Adjust offset for size
         iconLabel = NSTextField(labelWithString: "🌐")
-        iconLabel.font = NSFont.systemFont(ofSize: 32)
+        iconLabel.font = NSFont.systemFont(ofSize: iconSize)
         iconLabel.alignment = .center
         iconLabel.frame = NSRect(x: 0, y: verticalOffset, width: bounds.width, height: bounds.height)
         iconLabel.textColor = .white

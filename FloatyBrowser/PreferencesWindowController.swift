@@ -40,6 +40,13 @@ class PreferencesWindowController: NSWindowController {
     private func setupTabbedInterface() {
         guard let window = window else { return }
         
+        // Create visual effect view as the base content view
+        let visualEffectView = NSVisualEffectView()
+        visualEffectView.material = .sidebar
+        visualEffectView.blendingMode = .behindWindow
+        visualEffectView.state = .active
+        window.contentView = visualEffectView
+        
         // Create tab view controller
         tabViewController = NSTabViewController()
         tabViewController.tabStyle = .toolbar
@@ -62,27 +69,8 @@ class PreferencesWindowController: NSWindowController {
         tabViewController.addTabViewItem(searchTab)
         tabViewController.addTabViewItem(generalTab)
         
-        // Set as content view controller
+        // Set as content view controller (will add tab view to visual effect view)
         window.contentViewController = tabViewController
-        
-        // CRITICAL: Replace the window's content view with a visual effect view
-        // This must happen AFTER setting contentViewController
-        let contentView = window.contentView!
-        let visualEffectView = NSVisualEffectView(frame: contentView.bounds)
-        visualEffectView.autoresizingMask = [.width, .height]
-        visualEffectView.material = .sidebar
-        visualEffectView.blendingMode = .behindWindow
-        visualEffectView.state = .active
-        
-        // Move all existing subviews to the visual effect view
-        let existingSubviews = contentView.subviews
-        for subview in existingSubviews {
-            subview.removeFromSuperview()
-            visualEffectView.addSubview(subview)
-        }
-        
-        // Replace content view
-        window.contentView = visualEffectView
     }
     
     override func windowDidLoad() {

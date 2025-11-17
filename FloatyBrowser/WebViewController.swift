@@ -38,16 +38,61 @@ class BrowserStyleTextField: NSTextField {
     }
 }
 
+// Custom button with hover state
+class HoverButton: NSButton {
+    private var trackingArea: NSTrackingArea?
+    private var isHovering = false
+    
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        
+        // Remove old tracking area if it exists
+        if let existingTrackingArea = trackingArea {
+            removeTrackingArea(existingTrackingArea)
+        }
+        
+        // Create new tracking area
+        let options: NSTrackingArea.Options = [.mouseEnteredAndExited, .activeAlways]
+        trackingArea = NSTrackingArea(rect: bounds, options: options, owner: self, userInfo: nil)
+        addTrackingArea(trackingArea!)
+    }
+    
+    override func mouseEntered(with event: NSEvent) {
+        super.mouseEntered(with: event)
+        isHovering = true
+        applyHoverState()
+    }
+    
+    override func mouseExited(with event: NSEvent) {
+        super.mouseExited(with: event)
+        isHovering = false
+        applyHoverState()
+    }
+    
+    private func applyHoverState() {
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.15
+            context.allowsImplicitAnimation = true
+            
+            if isHovering {
+                self.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.12).cgColor
+            } else {
+                self.layer?.backgroundColor = NSColor.clear.cgColor
+            }
+        })
+    }
+}
+
 class WebViewController: NSViewController {
     private var webView: WKWebView!
     private let trafficLightArea = NSVisualEffectView()
     private let toolbar = NSVisualEffectView()
     private let minimizeToBubbleButton = NSButton()
-    private let backButton = NSButton()
-    private let forwardButton = NSButton()
-    private let reloadButton = NSButton()
+    private let backButton = HoverButton()
+    private let forwardButton = HoverButton()
+    private let reloadButton = HoverButton()
     private let urlField = BrowserStyleTextField()
-    private let newBubbleButton = NSButton()
+    private let newBubbleButton = HoverButton()
     private var progressIndicator: NSProgressIndicator!
     
     weak var delegate: WebViewControllerDelegate?
@@ -276,15 +321,7 @@ class WebViewController: NSViewController {
     private func styleModernButton(_ button: NSButton) {
         button.wantsLayer = true
         button.layer?.cornerRadius = 6
-        
-        // Add hover effect using tracking area
-        let trackingArea = NSTrackingArea(
-            rect: button.bounds,
-            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
-            owner: self,
-            userInfo: ["button": button]
-        )
-        button.addTrackingArea(trackingArea)
+        button.layer?.masksToBounds = true
     }
     
     private func setupWebView() {

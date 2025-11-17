@@ -53,6 +53,12 @@ class BrowserStyleTextField: NSTextField {
         // Call super to handle the click
         super.mouseDown(with: event)
         
+        // Show focus glow immediately on click
+        if !wasEditing {
+            animateFocusGlow(isFocused: true)
+            isCurrentlyEditing = true
+        }
+        
         // Select all text on first click - needs slight delay for field editor to be ready
         if !wasEditing {
             DispatchQueue.main.async { [weak self] in

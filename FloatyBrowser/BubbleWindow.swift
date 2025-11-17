@@ -482,11 +482,35 @@ class BubbleView: NSView {
                 glassView.layer?.masksToBounds = true
                 glassView.autoresizingMask = [.width, .height]
                 
+                // Add tinted overlay for better visibility
+                // Darker in light mode, lighter in dark mode
+                let isDarkMode = NSApp.effectiveAppearance.name == .darkAqua
+                if isDarkMode {
+                    // In dark mode: lighter tint for visibility against dark backgrounds
+                    glassView.layer?.backgroundColor = NSColor(white: 1.0, alpha: 0.15).cgColor
+                } else {
+                    // In light mode: darker tint for visibility against light backgrounds
+                    glassView.layer?.backgroundColor = NSColor(white: 0.0, alpha: 0.25).cgColor
+                }
+                
+                // Add subtle border for definition
+                glassView.layer?.borderWidth = 0.5
+                glassView.layer?.borderColor = NSColor(white: 0.5, alpha: 0.3).cgColor
+                
                 // Insert at the bottom
                 addSubview(glassView, positioned: .below, relativeTo: iconLabel)
                 frostedGlassView = glassView
             }
             frostedGlassView?.isHidden = false
+            
+            // Update colors when appearance changes
+            let isDarkMode = NSApp.effectiveAppearance.name == .darkAqua
+            if isDarkMode {
+                frostedGlassView?.layer?.backgroundColor = NSColor(white: 1.0, alpha: 0.15).cgColor
+            } else {
+                frostedGlassView?.layer?.backgroundColor = NSColor(white: 0.0, alpha: 0.25).cgColor
+            }
+            
             iconLabel.textColor = .labelColor
         } else {
             // Use gradient

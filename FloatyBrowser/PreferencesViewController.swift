@@ -289,10 +289,31 @@ class BubblePreviewView: NSView {
                 glassView.layer?.cornerRadius = bounds.width / 2
                 glassView.layer?.masksToBounds = true
                 
+                // Add tinted overlay for better visibility (same as actual bubble)
+                let isDarkMode = NSApp.effectiveAppearance.name == .darkAqua
+                if isDarkMode {
+                    glassView.layer?.backgroundColor = NSColor(white: 1.0, alpha: 0.15).cgColor
+                } else {
+                    glassView.layer?.backgroundColor = NSColor(white: 0.0, alpha: 0.25).cgColor
+                }
+                
+                // Add subtle border
+                glassView.layer?.borderWidth = 0.5
+                glassView.layer?.borderColor = NSColor(white: 0.5, alpha: 0.3).cgColor
+                
                 addSubview(glassView, positioned: .below, relativeTo: iconLabel)
                 frostedGlassView = glassView
             }
             frostedGlassView?.isHidden = false
+            
+            // Update colors when appearance changes
+            let isDarkMode = NSApp.effectiveAppearance.name == .darkAqua
+            if isDarkMode {
+                frostedGlassView?.layer?.backgroundColor = NSColor(white: 1.0, alpha: 0.15).cgColor
+            } else {
+                frostedGlassView?.layer?.backgroundColor = NSColor(white: 0.0, alpha: 0.25).cgColor
+            }
+            
             iconLabel.textColor = .labelColor
         } else {
             // Use gradient

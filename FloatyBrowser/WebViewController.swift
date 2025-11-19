@@ -1166,8 +1166,11 @@ extension WebViewController {
             if let color = color {
                 NSLog("🎨 Parsed header color to NSColor: \(color)")
                 
+                // Flatten color for modern look
+                let flattenedColor = self?.flattenColor(color) ?? color
+                
                 // Validate color quality
-                if let validColor = self?.validateColorQuality(color) {
+                if let validColor = self?.validateColorQuality(flattenedColor) {
                     NSLog("✅ Header color passed quality check")
                     completion(validColor)
                 } else {
@@ -1208,8 +1211,11 @@ extension WebViewController {
             if let color = color {
                 NSLog("🎨 Parsed to NSColor: \(color)")
                 
-                // Validate color quality (reject near-white and near-black)
-                if let validColor = self?.validateColorQuality(color) {
+                // Flatten color for modern look
+                let flattenedColor = self?.flattenColor(color) ?? color
+                
+                // Validate color quality
+                if let validColor = self?.validateColorQuality(flattenedColor) {
                     NSLog("✅ Color passed quality check")
                     completion(validColor)
                 } else {
@@ -1273,8 +1279,11 @@ extension WebViewController {
                     let color = self?.parseColor(from: themeColor)
                     
                     if let color = color {
+                        // Flatten color for modern look
+                        let flattenedColor = self?.flattenColor(color) ?? color
+                        
                         // Validate color quality
-                        if let validColor = self?.validateColorQuality(color) {
+                        if let validColor = self?.validateColorQuality(flattenedColor) {
                             NSLog("✅ Manifest color passed quality check")
                             completion(validColor)
                             return
@@ -1365,8 +1374,8 @@ extension WebViewController {
             alpha: 1.0
         )
         
-        // Boost saturation for more vibrant colors
-        dominantColor = boostColorSaturation(dominantColor, by: 1.3)
+        // Flatten color for modern, subtle appearance
+        dominantColor = flattenColor(dominantColor)
         
         NSLog("🎨 Extracted dominant color: R:\(components[0]) G:\(components[1]) B:\(components[2])")
         
@@ -1374,8 +1383,9 @@ extension WebViewController {
         return validateColorQuality(dominantColor)
     }
     
-    /// Boost color saturation for more vibrant appearance
-    private func boostColorSaturation(_ color: NSColor, by factor: CGFloat) -> NSColor {
+    /// Flatten color for modern, subtle appearance
+    /// Makes colors less saturated and more pleasant to look at
+    private func flattenColor(_ color: NSColor) -> NSColor {
         guard let rgbColor = color.usingColorSpace(.deviceRGB) else { return color }
         
         var hue: CGFloat = 0
@@ -1388,13 +1398,22 @@ extension WebViewController {
                 blue: rgbColor.blueComponent,
                 alpha: rgbColor.alphaComponent).getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
         
-        // Boost saturation
-        let boostedSaturation = min(1.0, saturation * factor)
+        // Reduce saturation to max 50% for a flatter, modern look
+        let flattenedSaturation = min(saturation, 0.5)
         
-        return NSColor(hue: hue, saturation: boostedSaturation, brightness: brightness, alpha: alpha)
+        // Slightly brighten very dark colors for better visibility
+        var adjustedBrightness = brightness
+        if brightness < 0.3 {
+            adjustedBrightness = min(1.0, brightness + 0.15)
+        }
+        
+        NSLog("🎨 Flattening color - Original S:\(saturation) B:\(brightness) → New S:\(flattenedSaturation) B:\(adjustedBrightness)")
+        
+        return NSColor(hue: hue, saturation: flattenedSaturation, brightness: adjustedBrightness, alpha: alpha)
     }
     
-    /// Validate color quality - reject near-white and near-black colors
+    /// Validate color quality - only reject pure black
+    /// White colors are now allowed!
     private func validateColorQuality(_ color: NSColor) -> NSColor? {
         guard let rgbColor = color.usingColorSpace(.deviceRGB) else {
             NSLog("⚠️ Could not convert color to RGB for quality check")
@@ -1410,19 +1429,13 @@ extension WebViewController {
         
         NSLog("🔍 Color luminance: \(luminance)")
         
-        // Reject near-white (luminance > 0.95)
-        if luminance > 0.95 {
-            NSLog("❌ Rejected: too light (luminance \(luminance) > 0.95)")
+        // Only reject pure black (luminance < 0.03)
+        if luminance < 0.03 {
+            NSLog("❌ Rejected: too dark (luminance \(luminance) < 0.03)")
             return nil
         }
         
-        // Reject near-black (luminance < 0.05)
-        if luminance < 0.05 {
-            NSLog("❌ Rejected: too dark (luminance \(luminance) < 0.05)")
-            return nil
-        }
-        
-        NSLog("✅ Color luminance OK: \(luminance)")
+        NSLog("✅ Color quality OK: \(luminance)")
         return color
     }
     

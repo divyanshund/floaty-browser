@@ -360,8 +360,9 @@ class PanelWindow: NSPanel {
             return
         }
         
-        customControlBar.layer?.backgroundColor = color.cgColor
-        NSLog("✅ Applied theme color to PanelWindow control bar: \(color)")
+        // 90% opacity for top control bar (same as traffic light area)
+        customControlBar.layer?.backgroundColor = color.withAlphaComponent(0.90).cgColor
+        NSLog("✅ Applied theme color to PanelWindow control bar: \(color) with 90% opacity")
     }
     
     func handleThemeColorModeChanged(_ enabled: Bool) {

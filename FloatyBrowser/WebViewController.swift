@@ -1024,15 +1024,15 @@ extension WebViewController {
         let color = getTestColorFor(host: host)
         NSLog("🎨 Applying test color for \(host): \(color)")
         
-        // Apply to toolbar
-        toolbar.layer?.backgroundColor = color.cgColor
-        NSLog("✅ Toolbar background set to: \(color)")
+        // Apply to toolbar (85% opacity for subtle transparency)
+        toolbar.layer?.backgroundColor = color.withAlphaComponent(0.85).cgColor
+        NSLog("✅ Toolbar background set to: \(color) with 85% opacity")
         NSLog("📏 Toolbar frame: \(toolbar.frame)")
         NSLog("🔧 Toolbar has layer: \(toolbar.layer != nil)")
         
-        // Apply to traffic light area
-        trafficLightArea.layer?.backgroundColor = color.cgColor
-        NSLog("✅ Traffic light area background set to: \(color)")
+        // Apply to traffic light area (90% opacity for top bar)
+        trafficLightArea.layer?.backgroundColor = color.withAlphaComponent(0.90).cgColor
+        NSLog("✅ Traffic light area background set to: \(color) with 90% opacity")
         NSLog("📏 Traffic light area frame: \(trafficLightArea.frame)")
         NSLog("🔧 Traffic light area has layer: \(trafficLightArea.layer != nil)")
         NSLog("🎭 Traffic light area class: \(type(of: trafficLightArea))")

@@ -1037,46 +1037,146 @@ extension WebViewController {
         
         NSLog("🎨 Starting theme color extraction for: \(host)")
         
-        // Priority 1: Meta tag
-        extractColorFromMetaTag { [weak self] color in
+        // Priority 1: Header/Nav color (visual accuracy)
+        extractColorFromHeader { [weak self] color in
             guard let self = self else { return }
             
             if let color = color {
-                NSLog("✅ Found theme color from meta tag: \(color)")
+                NSLog("✅ Found theme color from header: \(color)")
                 self.currentThemeColor = color
                 self.applyThemeColor(color)
                 return
             }
             
-            NSLog("⚠️ No meta tag, trying manifest...")
+            NSLog("⚠️ No header color, trying meta tag...")
             
-            // Priority 2: Web manifest
-            self.extractColorFromManifest { [weak self] color in
+            // Priority 2: Meta tag
+            self.extractColorFromMetaTag { [weak self] color in
                 guard let self = self else { return }
                 
                 if let color = color {
-                    NSLog("✅ Found theme color from manifest: \(color)")
+                    NSLog("✅ Found theme color from meta tag: \(color)")
                     self.currentThemeColor = color
                     self.applyThemeColor(color)
                     return
                 }
                 
-                NSLog("⚠️ No manifest, trying favicon...")
+                NSLog("⚠️ No meta tag, trying manifest...")
                 
-                // Priority 3: Favicon dominant color
-                self.extractColorFromFavicon { [weak self] color in
+                // Priority 3: Web manifest
+                self.extractColorFromManifest { [weak self] color in
                     guard let self = self else { return }
                     
                     if let color = color {
-                        NSLog("✅ Found theme color from favicon: \(color)")
+                        NSLog("✅ Found theme color from manifest: \(color)")
                         self.currentThemeColor = color
                         self.applyThemeColor(color)
                         return
                     }
                     
-                    NSLog("⚠️ No valid theme color found, using default")
-                    self.applyDefaultThemeColor()
+                    NSLog("⚠️ No manifest, trying favicon...")
+                    
+                    // Priority 4: Favicon dominant color
+                    self.extractColorFromFavicon { [weak self] color in
+                        guard let self = self else { return }
+                        
+                        if let color = color {
+                            NSLog("✅ Found theme color from favicon: \(color)")
+                            self.currentThemeColor = color
+                            self.applyThemeColor(color)
+                            return
+                        }
+                        
+                        NSLog("⚠️ No valid theme color found, using default")
+                        self.applyDefaultThemeColor()
+                    }
                 }
+            }
+        }
+    }
+    
+    /// Extract color from header/nav bar background (Priority 1 - visual accuracy)
+    private func extractColorFromHeader(completion: @escaping (NSColor?) -> Void) {
+        let script = """
+        (function() {
+            // Try common header/nav selectors in priority order
+            var selectors = [
+                'header',
+                'nav',
+                '[role="banner"]',
+                '.header',
+                '.navbar',
+                '.top-bar',
+                '.site-header',
+                '#header',
+                '#navbar',
+                '.main-header',
+                '.navigation'
+            ];
+            
+            for (var i = 0; i < selectors.length; i++) {
+                var element = document.querySelector(selectors[i]);
+                if (element) {
+                    var style = window.getComputedStyle(element);
+                    var bgColor = style.backgroundColor;
+                    
+                    // Skip transparent/empty backgrounds
+                    if (bgColor && 
+                        bgColor !== 'transparent' && 
+                        bgColor !== 'rgba(0, 0, 0, 0)' &&
+                        !bgColor.includes('rgba(255, 255, 255, 0)')) {
+                        
+                        console.log('Found header element: ' + selectors[i]);
+                        console.log('Background color: ' + bgColor);
+                        return bgColor;
+                    }
+                }
+            }
+            
+            // Fallback: try body background (some minimal sites)
+            var bodyStyle = window.getComputedStyle(document.body);
+            var bodyBg = bodyStyle.backgroundColor;
+            if (bodyBg && 
+                bodyBg !== 'transparent' && 
+                bodyBg !== 'rgba(0, 0, 0, 0)' &&
+                !bodyBg.includes('rgba(255, 255, 255, 0)')) {
+                console.log('Using body background: ' + bodyBg);
+                return bodyBg;
+            }
+            
+            return null;
+        })();
+        """
+        
+        webView.evaluateJavaScript(script) { [weak self] result, error in
+            if let error = error {
+                NSLog("❌ Error extracting header color: \(error.localizedDescription)")
+                completion(nil)
+                return
+            }
+            
+            guard let colorString = result as? String else {
+                NSLog("⚠️ No header color found")
+                completion(nil)
+                return
+            }
+            
+            NSLog("🎨 Header color string: '\(colorString)'")
+            let color = self?.parseColor(from: colorString)
+            if let color = color {
+                NSLog("🎨 Parsed header color to NSColor: \(color)")
+                
+                // Validate color quality
+                if let validColor = self?.validateColorQuality(color) {
+                    NSLog("✅ Header color passed quality check")
+                    completion(validColor)
+                } else {
+                    NSLog("⚠️ Header color failed quality check (too light or too dark), skipping")
+                    completion(nil)
+                }
+            } else {
+                NSLog("❌ Failed to parse header color string: '\(colorString)'")
+                completion(nil)
             }
         }
     }

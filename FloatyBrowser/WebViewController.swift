@@ -930,16 +930,10 @@ extension WebViewController: NSTextFieldDelegate {
 
 extension WebViewController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        // Intercept new window requests (target="_blank", window.open)
-        if navigationAction.targetFrame == nil {
-            // This is a request to open in a new window/tab
-            if let url = navigationAction.request.url {
-                delegate?.webViewController(self, didRequestNewBubble: url.absoluteString)
-                decisionHandler(.cancel)
-                return
-            }
-        }
+        // Note: Popup/new window requests are handled in WKUIDelegate.createWebView
+        // We don't handle them here to avoid duplicate bubble creation
         
+        // Allow all normal navigation
         decisionHandler(.allow)
     }
     
@@ -982,11 +976,23 @@ extension WebViewController: WKNavigationDelegate {
 // MARK: - WKUIDelegate
 
 extension WebViewController: WKUIDelegate {
+    /// Handle popup window requests (window.open(), target="_blank", etc.)
+    /// This is the SINGLE point where new bubbles are created for popups
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-        // Handle window.open() and similar calls
-        if let url = navigationAction.request.url {
-            delegate?.webViewController(self, didRequestNewBubble: url.absoluteString)
+        guard let url = navigationAction.request.url else {
+            NSLog("⚠️ Popup request with no URL, ignoring")
+            return nil
         }
+        
+        NSLog("🪟 POPUP REQUEST: Creating new bubble for \(url.absoluteString)")
+        NSLog("   ↳ Reason: \(navigationAction.navigationType.rawValue)")
+        NSLog("   ↳ Target frame: \(navigationAction.targetFrame == nil ? "nil (new window)" : "exists")")
+        
+        // Request WindowManager to create a new bubble with shared session
+        delegate?.webViewController(self, didRequestNewBubble: url.absoluteString)
+        
+        // Return nil to indicate we're not providing a WKWebView
+        // (we're creating a new bubble window instead)
         return nil
     }
     

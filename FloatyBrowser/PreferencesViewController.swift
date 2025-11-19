@@ -37,6 +37,9 @@ class AppearancePreferencesViewController: NSViewController {
     
     private var appearancePopup: NSPopUpButton!
     private var bubblePreview: BubblePreviewView!
+    private var themeColorsCheckbox: NSButton!
+    
+    private let useThemeColorsKey = "useWebsiteThemeColors"
     
     override func loadView() {
         self.view = NSView(frame: NSRect(x: 0, y: 0, width: 600, height: 450))
@@ -99,6 +102,38 @@ class AppearancePreferencesViewController: NSViewController {
             height: previewSize
         ))
         view.addSubview(bubblePreview)
+        yPos -= 130
+        
+        // Theme colors section
+        let separator1 = NSBox(frame: NSRect(x: margin, y: yPos, width: 480, height: 1))
+        separator1.boxType = .separator
+        view.addSubview(separator1)
+        yPos -= 35
+        
+        let themeColorsHeader = NSTextField(labelWithString: "Browser Window Colors")
+        themeColorsHeader.frame = NSRect(x: margin, y: yPos, width: 480, height: 22)
+        themeColorsHeader.font = NSFont.systemFont(ofSize: 16, weight: .semibold)
+        view.addSubview(themeColorsHeader)
+        yPos -= 35
+        
+        // Theme colors checkbox
+        themeColorsCheckbox = NSButton(checkboxWithTitle: "Use website theme colors for browser window", target: self, action: #selector(themeColorsToggled))
+        themeColorsCheckbox.frame = NSRect(x: margin, y: yPos, width: 450, height: 18)
+        themeColorsCheckbox.font = NSFont.systemFont(ofSize: 13)
+        view.addSubview(themeColorsCheckbox)
+        yPos -= 30
+        
+        // Theme colors description
+        let themeColorsDesc = NSTextField(labelWithString: "Adapts window toolbar colors based on website theme. Disables translucent frosted glass effect.")
+        themeColorsDesc.frame = NSRect(x: margin + 20, y: yPos, width: 430, height: 34)
+        themeColorsDesc.font = NSFont.systemFont(ofSize: 12)
+        themeColorsDesc.textColor = .tertiaryLabelColor
+        themeColorsDesc.drawsBackground = false
+        themeColorsDesc.isBezeled = false
+        themeColorsDesc.isBordered = false
+        themeColorsDesc.maximumNumberOfLines = 2
+        themeColorsDesc.lineBreakMode = .byWordWrapping
+        view.addSubview(themeColorsDesc)
         
         NSLog("✅ AppearancePreferencesViewController: UI setup complete")
     }
@@ -110,6 +145,11 @@ class AppearancePreferencesViewController: NSViewController {
         appearancePopup.selectItem(withTitle: currentAppearance.rawValue)
         bubblePreview.updateAppearance(currentAppearance)
         NSLog("📖 Loaded saved appearance: \(currentAppearance.rawValue)")
+        
+        // Load theme colors setting (default: OFF)
+        let useThemeColors = UserDefaults.standard.object(forKey: useThemeColorsKey) as? Bool ?? false
+        themeColorsCheckbox.state = useThemeColors ? .on : .off
+        NSLog("📖 Loaded theme colors setting: \(useThemeColors)")
     }
     
     @objc private func appearanceChanged() {
@@ -127,6 +167,23 @@ class AppearancePreferencesViewController: NSViewController {
         bubblePreview.updateAppearance(appearance)
         
         NSLog("💾 Saved appearance: \(appearance.rawValue)")
+    }
+    
+    @objc private func themeColorsToggled() {
+        let isEnabled = themeColorsCheckbox.state == .on
+        UserDefaults.standard.set(isEnabled, forKey: useThemeColorsKey)
+        UserDefaults.standard.synchronize()
+        
+        NSLog("💾 Theme colors \(isEnabled ? "enabled" : "disabled")")
+        NSLog("⚠️ Note: New windows will use the new setting. Existing windows unchanged.")
+    }
+}
+
+// MARK: - Public helper to check if theme colors are enabled
+
+extension AppearancePreferencesViewController {
+    static func isThemeColorsEnabled() -> Bool {
+        return UserDefaults.standard.object(forKey: "useWebsiteThemeColors") as? Bool ?? false
     }
 }
 

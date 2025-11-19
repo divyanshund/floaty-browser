@@ -182,8 +182,8 @@ class HoverButton: NSButton {
 
 class WebViewController: NSViewController {
     private var webView: WKWebView!
-    private let trafficLightArea = NSVisualEffectView()
-    private let toolbar = NSVisualEffectView()
+    private var trafficLightArea: NSView!  // Can be NSVisualEffectView OR NSView
+    private var toolbar: NSView!  // Can be NSVisualEffectView OR NSView
     private let minimizeToBubbleButton = NSButton()
     private let backButton = HoverButton()
     private let forwardButton = HoverButton()
@@ -197,6 +197,9 @@ class WebViewController: NSViewController {
     
     // UserDefaults key for tracking first-time minimize
     private let hasMinimizedBeforeKey = "hasMinimizedToBubbleBefore"
+    
+    // Check if theme colors are enabled (decides view type at setup)
+    private let useThemeColors: Bool
     
     private let webConfiguration: WKWebViewConfiguration = {
         let config = WKWebViewConfiguration()
@@ -232,6 +235,20 @@ class WebViewController: NSViewController {
         return webView.url?.absoluteString ?? ""
     }
     
+    init() {
+        // Decide mode at initialization - NEVER changes after this
+        self.useThemeColors = AppearancePreferencesViewController.isThemeColorsEnabled()
+        super.init(nibName: nil, bundle: nil)
+        NSLog("🎨 WebViewController initialized with theme colors: \(useThemeColors)")
+    }
+    
+    required init?(coder: NSCoder) {
+        // Decide mode at initialization
+        self.useThemeColors = AppearancePreferencesViewController.isThemeColorsEnabled()
+        super.init(coder: coder)
+        NSLog("🎨 WebViewController initialized with theme colors: \(useThemeColors)")
+    }
+    
     override func loadView() {
         view = NSView(frame: NSRect(x: 0, y: 0, width: 420, height: 600))
         view.wantsLayer = true
@@ -253,14 +270,26 @@ class WebViewController: NSViewController {
     
     private func setupTrafficLightArea() {
         let trafficLightHeight: CGFloat = 30
-        trafficLightArea.frame = NSRect(x: 0, y: view.bounds.height - trafficLightHeight, width: view.bounds.width, height: trafficLightHeight)
-        trafficLightArea.autoresizingMask = [.width, .minYMargin]
         
-        // Configure translucent vibrancy effect
-        trafficLightArea.material = .hudWindow  // More translucent
-        trafficLightArea.blendingMode = .behindWindow
-        trafficLightArea.state = .active
-        trafficLightArea.alphaValue = 0.95  // Slight transparency
+        if useThemeColors {
+            // Mode 1: Solid colored view
+            let solidView = NSView(frame: NSRect(x: 0, y: view.bounds.height - trafficLightHeight, width: view.bounds.width, height: trafficLightHeight))
+            solidView.autoresizingMask = [.width, .minYMargin]
+            solidView.wantsLayer = true
+            solidView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor  // Start with default, will be colored later
+            trafficLightArea = solidView
+            NSLog("✅ Created SOLID traffic light area (theme colors enabled)")
+        } else {
+            // Mode 2: Frosted glass vibrancy
+            let visualEffectView = NSVisualEffectView(frame: NSRect(x: 0, y: view.bounds.height - trafficLightHeight, width: view.bounds.width, height: trafficLightHeight))
+            visualEffectView.autoresizingMask = [.width, .minYMargin]
+            visualEffectView.material = .hudWindow
+            visualEffectView.blendingMode = .behindWindow
+            visualEffectView.state = .active
+            visualEffectView.alphaValue = 0.95
+            trafficLightArea = visualEffectView
+            NSLog("✅ Created FROSTED GLASS traffic light area (theme colors disabled)")
+        }
         
         // Add minimize to bubble button
         setupMinimizeToBubbleButton()
@@ -310,14 +339,25 @@ class WebViewController: NSViewController {
         let toolbarHeight: CGFloat = 44  // Slightly taller for better spacing
         let totalTopHeight = trafficLightHeight + toolbarHeight
         
-        toolbar.frame = NSRect(x: 0, y: view.bounds.height - totalTopHeight, width: view.bounds.width, height: toolbarHeight)
-        toolbar.autoresizingMask = [.width, .minYMargin]
-        
-        // Configure translucent vibrancy effect
-        toolbar.material = .hudWindow  // More translucent material
-        toolbar.blendingMode = .behindWindow
-        toolbar.state = .active
-        toolbar.alphaValue = 0.95  // Slight transparency
+        if useThemeColors {
+            // Mode 1: Solid colored view
+            let solidView = NSView(frame: NSRect(x: 0, y: view.bounds.height - totalTopHeight, width: view.bounds.width, height: toolbarHeight))
+            solidView.autoresizingMask = [.width, .minYMargin]
+            solidView.wantsLayer = true
+            solidView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor  // Start with default, will be colored later
+            toolbar = solidView
+            NSLog("✅ Created SOLID toolbar (theme colors enabled)")
+        } else {
+            // Mode 2: Frosted glass vibrancy
+            let visualEffectView = NSVisualEffectView(frame: NSRect(x: 0, y: view.bounds.height - totalTopHeight, width: view.bounds.width, height: toolbarHeight))
+            visualEffectView.autoresizingMask = [.width, .minYMargin]
+            visualEffectView.material = .hudWindow
+            visualEffectView.blendingMode = .behindWindow
+            visualEffectView.state = .active
+            visualEffectView.alphaValue = 0.95
+            toolbar = visualEffectView
+            NSLog("✅ Created FROSTED GLASS toolbar (theme colors disabled)")
+        }
         
         let buttonSize: CGFloat = 28  // Modern square buttons
         let buttonY: CGFloat = (toolbarHeight - buttonSize) / 2  // Center vertically
@@ -793,6 +833,11 @@ extension WebViewController: WKNavigationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             self?.fetchFavicon()
         }
+        
+        // Apply theme colors if enabled
+        if useThemeColors {
+            applyThemeColorForCurrentURL()
+        }
     }
     
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
@@ -842,6 +887,47 @@ extension WebViewController: WKUIDelegate {
         alert.addButton(withTitle: "Cancel")
         let response = alert.runModal()
         completionHandler(response == .alertFirstButtonReturn)
+    }
+}
+
+// MARK: - Theme Color Management (Test Implementation)
+
+extension WebViewController {
+    private func applyThemeColorForCurrentURL() {
+        guard let url = webView.url, let host = url.host else {
+            NSLog("⚠️ No URL for theme color")
+            return
+        }
+        
+        let color = getTestColorFor(host: host)
+        NSLog("🎨 Applying test color for \(host): \(color)")
+        
+        // Apply to both toolbars
+        toolbar.layer?.backgroundColor = color.cgColor
+        trafficLightArea.layer?.backgroundColor = color.cgColor
+        
+        NSLog("✅ Theme color applied successfully")
+    }
+    
+    private func getTestColorFor(host: String) -> NSColor {
+        // Hardcoded test colors
+        if host.contains("youtube.com") {
+            NSLog("🔴 RED for YouTube")
+            return NSColor.systemRed
+        } else if host.contains("google.com") {
+            NSLog("🔵 BLUE for Google")
+            return NSColor.systemBlue
+        } else {
+            // Random color for everything else
+            let randomColor = NSColor(
+                red: CGFloat.random(in: 0.3...0.9),
+                green: CGFloat.random(in: 0.3...0.9),
+                blue: CGFloat.random(in: 0.3...0.9),
+                alpha: 1.0
+            )
+            NSLog("🎲 RANDOM color for \(host)")
+            return randomColor
+        }
     }
 }
 

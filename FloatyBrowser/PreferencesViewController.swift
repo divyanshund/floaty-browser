@@ -42,7 +42,7 @@ class AppearancePreferencesViewController: NSViewController {
     private let useThemeColorsKey = "useWebsiteThemeColors"
     
     override func loadView() {
-        self.view = NSView(frame: NSRect(x: 0, y: 0, width: 600, height: 450))
+        self.view = NSView(frame: NSRect(x: 0, y: 0, width: 600, height: 580))  // Increased from 450 to 580
         self.view.wantsLayer = true
     }
     
@@ -54,7 +54,7 @@ class AppearancePreferencesViewController: NSViewController {
     
     private func setupUI() {
         let margin: CGFloat = 60
-        var yPos: CGFloat = 360
+        var yPos: CGFloat = 490  // Increased from 360 to 490 (130 more to match height increase)
         
         // Title
         let title = NSTextField(labelWithString: "Bubble Appearance")
@@ -196,7 +196,7 @@ class SearchPreferencesViewController: NSViewController {
     private var previewLabel: NSTextField!
     
     override func loadView() {
-        self.view = NSView(frame: NSRect(x: 0, y: 0, width: 600, height: 450))
+        self.view = NSView(frame: NSRect(x: 0, y: 0, width: 600, height: 580))  // Match window height
         self.view.wantsLayer = true
     }
     
@@ -208,7 +208,7 @@ class SearchPreferencesViewController: NSViewController {
     
     private func setupUI() {
         let margin: CGFloat = 60
-        var yPos: CGFloat = 360
+        var yPos: CGFloat = 490  // Match Appearance tab starting position
         
         // Title
         let title = NSTextField(labelWithString: "Default Search Engine")
@@ -302,7 +302,7 @@ class GeneralPreferencesViewController: NSViewController {
     private var hapticsCheckbox: NSButton!
     
     override func loadView() {
-        self.view = NSView(frame: NSRect(x: 0, y: 0, width: 600, height: 450))
+        self.view = NSView(frame: NSRect(x: 0, y: 0, width: 600, height: 580))  // Match window height
         self.view.wantsLayer = true
     }
     
@@ -314,7 +314,7 @@ class GeneralPreferencesViewController: NSViewController {
     
     private func setupUI() {
         let margin: CGFloat = 60
-        var yPos: CGFloat = 360
+        var yPos: CGFloat = 490  // Match Appearance tab starting position
         
         // Title
         let title = NSTextField(labelWithString: "General Settings")

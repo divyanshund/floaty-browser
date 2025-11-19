@@ -14,7 +14,7 @@ class PreferencesWindowController: NSWindowController {
     convenience init() {
         // Create the preferences window with translucent background
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 600, height: 450),
+            contentRect: NSRect(x: 0, y: 0, width: 600, height: 580),  // Increased from 450 to 580
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false

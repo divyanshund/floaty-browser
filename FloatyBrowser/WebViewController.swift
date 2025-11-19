@@ -1098,12 +1098,28 @@ extension WebViewController {
             }
             
             guard let colorString = result as? String else {
+                NSLog("⚠️ No meta tag found")
                 completion(nil)
                 return
             }
             
+            NSLog("🎨 Meta tag color string: '\(colorString)'")
             let color = self?.parseColor(from: colorString)
-            completion(color)
+            if let color = color {
+                NSLog("🎨 Parsed to NSColor: \(color)")
+                
+                // Validate color quality (reject near-white and near-black)
+                if let validColor = self?.validateColorQuality(color) {
+                    NSLog("✅ Color passed quality check")
+                    completion(validColor)
+                } else {
+                    NSLog("⚠️ Color failed quality check (too light or too dark), skipping")
+                    completion(nil)
+                }
+            } else {
+                NSLog("❌ Failed to parse color string: '\(colorString)'")
+                completion(nil)
+            }
         }
     }
     
@@ -1153,9 +1169,19 @@ extension WebViewController {
             do {
                 if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                    let themeColor = json["theme_color"] as? String {
+                    NSLog("🎨 Manifest color string: '\(themeColor)'")
                     let color = self?.parseColor(from: themeColor)
-                    completion(color)
-                    return
+                    
+                    if let color = color {
+                        // Validate color quality
+                        if let validColor = self?.validateColorQuality(color) {
+                            NSLog("✅ Manifest color passed quality check")
+                            completion(validColor)
+                            return
+                        } else {
+                            NSLog("⚠️ Manifest color failed quality check, skipping")
+                        }
+                    }
                 }
             } catch {
                 NSLog("❌ Error parsing manifest JSON: \(error.localizedDescription)")
@@ -1243,7 +1269,9 @@ extension WebViewController {
         dominantColor = boostColorSaturation(dominantColor, by: 1.3)
         
         NSLog("🎨 Extracted dominant color: R:\(components[0]) G:\(components[1]) B:\(components[2])")
-        return dominantColor
+        
+        // Validate the extracted color (already filtered during extraction, but double-check)
+        return validateColorQuality(dominantColor)
     }
     
     /// Boost color saturation for more vibrant appearance
@@ -1266,27 +1294,67 @@ extension WebViewController {
         return NSColor(hue: hue, saturation: boostedSaturation, brightness: brightness, alpha: alpha)
     }
     
+    /// Validate color quality - reject near-white and near-black colors
+    private func validateColorQuality(_ color: NSColor) -> NSColor? {
+        guard let rgbColor = color.usingColorSpace(.deviceRGB) else {
+            NSLog("⚠️ Could not convert color to RGB for quality check")
+            return nil
+        }
+        
+        let red = rgbColor.redComponent
+        let green = rgbColor.greenComponent
+        let blue = rgbColor.blueComponent
+        
+        // Calculate relative luminance (WCAG formula)
+        let luminance = 0.299 * red + 0.587 * green + 0.114 * blue
+        
+        NSLog("🔍 Color luminance: \(luminance)")
+        
+        // Reject near-white (luminance > 0.95)
+        if luminance > 0.95 {
+            NSLog("❌ Rejected: too light (luminance \(luminance) > 0.95)")
+            return nil
+        }
+        
+        // Reject near-black (luminance < 0.05)
+        if luminance < 0.05 {
+            NSLog("❌ Rejected: too dark (luminance \(luminance) < 0.05)")
+            return nil
+        }
+        
+        NSLog("✅ Color luminance OK: \(luminance)")
+        return color
+    }
+    
     /// Parse color string from various formats (#RGB, #RRGGBB, rgb(), rgba())
     private func parseColor(from string: String) -> NSColor? {
         let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        NSLog("🔍 Parsing color: '\(trimmed)'")
         
         // Handle hex colors (#RGB or #RRGGBB)
         if trimmed.hasPrefix("#") {
             let hex = String(trimmed.dropFirst())
+            NSLog("🔍 Detected hex color: '\(hex)'")
             
             if hex.count == 3 {
                 // #RGB -> #RRGGBB
                 let r = String(repeating: hex[hex.startIndex], count: 2)
                 let g = String(repeating: hex[hex.index(hex.startIndex, offsetBy: 1)], count: 2)
                 let b = String(repeating: hex[hex.index(hex.startIndex, offsetBy: 2)], count: 2)
-                return parseHexColor(r + g + b)
+                let expanded = r + g + b
+                NSLog("🔍 Expanded #RGB to #RRGGBB: \(expanded)")
+                return parseHexColor(expanded)
             } else if hex.count == 6 {
+                NSLog("🔍 Parsing 6-digit hex: \(hex)")
                 return parseHexColor(hex)
+            } else {
+                NSLog("❌ Invalid hex length: \(hex.count)")
             }
         }
         
         // Handle rgb() or rgba()
         if trimmed.hasPrefix("rgb") {
+            NSLog("🔍 Detected rgb/rgba format")
             let pattern = #"rgba?\((\d+),\s*(\d+),\s*(\d+)"#
             if let regex = try? NSRegularExpression(pattern: pattern),
                let match = regex.firstMatch(in: trimmed, range: NSRange(trimmed.startIndex..., in: trimmed)) {
@@ -1294,6 +1362,8 @@ extension WebViewController {
                 let r = (trimmed as NSString).substring(with: match.range(at: 1))
                 let g = (trimmed as NSString).substring(with: match.range(at: 2))
                 let b = (trimmed as NSString).substring(with: match.range(at: 3))
+                
+                NSLog("🔍 RGB values: R=\(r) G=\(g) B=\(b)")
                 
                 if let red = Int(r), let green = Int(g), let blue = Int(b) {
                     return NSColor(
@@ -1306,11 +1376,15 @@ extension WebViewController {
             }
         }
         
+        NSLog("❌ Could not parse color: '\(trimmed)'")
         return nil
     }
     
     private func parseHexColor(_ hex: String) -> NSColor? {
-        guard hex.count == 6 else { return nil }
+        guard hex.count == 6 else {
+            NSLog("❌ parseHexColor: Invalid length \(hex.count), expected 6")
+            return nil
+        }
         
         let scanner = Scanner(string: hex)
         var hexNumber: UInt64 = 0
@@ -1320,9 +1394,12 @@ extension WebViewController {
             let g = CGFloat((hexNumber & 0x00FF00) >> 8) / 255.0
             let b = CGFloat(hexNumber & 0x0000FF) / 255.0
             
+            NSLog("✅ parseHexColor: \(hex) -> R:\(r) G:\(g) B:\(b)")
+            
             return NSColor(red: r, green: g, blue: b, alpha: 1.0)
         }
         
+        NSLog("❌ parseHexColor: Failed to scan hex: \(hex)")
         return nil
     }
     

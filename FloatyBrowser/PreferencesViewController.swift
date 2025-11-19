@@ -175,8 +175,17 @@ class AppearancePreferencesViewController: NSViewController {
         UserDefaults.standard.synchronize()
         
         NSLog("💾 Theme colors \(isEnabled ? "enabled" : "disabled")")
-        NSLog("⚠️ Note: New windows will use the new setting. Existing windows unchanged.")
+        
+        // Notify all open windows to update their mode
+        NotificationCenter.default.post(name: .themeColorModeChanged, object: nil, userInfo: ["enabled": isEnabled])
+        NSLog("📢 Broadcasted theme color mode change to all windows")
     }
+}
+
+// MARK: - Notification Name
+
+extension Notification.Name {
+    static let themeColorModeChanged = Notification.Name("themeColorModeChanged")
 }
 
 // MARK: - Public helper to check if theme colors are enabled

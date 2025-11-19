@@ -70,7 +70,7 @@ class PanelWindow: NSPanel {
     private var closeWindowButton: NSButton!
     private var fullscreenButton: NSButton!
     private var minimizeToBubbleButton: NSButton!
-    private let useThemeColors: Bool  // Decide at creation
+    private var useThemeColors: Bool  // Can change dynamically
     
     weak var panelDelegate: PanelWindowDelegate?
     
@@ -362,6 +362,68 @@ class PanelWindow: NSPanel {
         
         customControlBar.layer?.backgroundColor = color.cgColor
         NSLog("✅ Applied theme color to PanelWindow control bar: \(color)")
+    }
+    
+    func handleThemeColorModeChanged(_ enabled: Bool) {
+        NSLog("📢 PanelWindow received theme color mode change: \(enabled)")
+        
+        // Update our mode
+        useThemeColors = enabled
+        
+        // Swap the control bar
+        swapCustomControlBar(toColoredMode: enabled)
+        
+        // Re-apply color if we switched to colored mode
+        if enabled {
+            // Ask WebViewController to apply the color
+            webViewController.applyThemeColorForCurrentURL()
+        }
+        
+        NSLog("✅ PanelWindow switched to \(enabled ? "COLORED" : "FROSTED GLASS") mode")
+    }
+    
+    private func swapCustomControlBar(toColoredMode: Bool) {
+        guard let contentView = contentView else { return }
+        
+        NSLog("🔄 Swapping custom control bar to \(toColoredMode ? "colored" : "frosted glass") mode")
+        
+        let controlBarHeight: CGFloat = 28
+        let frame = NSRect(x: 0, y: contentView.bounds.height - controlBarHeight, width: contentView.bounds.width, height: controlBarHeight)
+        
+        // Store all subviews (buttons)
+        let subviews = customControlBar.subviews
+        
+        // Remove old control bar
+        customControlBar.removeFromSuperview()
+        
+        // Create new control bar
+        if toColoredMode {
+            // Solid view
+            let solidView = NSView(frame: frame)
+            solidView.autoresizingMask = [.width, .minYMargin]
+            solidView.wantsLayer = true
+            solidView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+            customControlBar = solidView
+        } else {
+            // Frosted glass
+            let visualEffectView = NSVisualEffectView(frame: frame)
+            visualEffectView.autoresizingMask = [.width, .minYMargin]
+            visualEffectView.material = .hudWindow
+            visualEffectView.blendingMode = .behindWindow
+            visualEffectView.state = .active
+            visualEffectView.wantsLayer = true
+            customControlBar = visualEffectView
+        }
+        
+        // Re-add all subviews (buttons)
+        for subview in subviews {
+            customControlBar.addSubview(subview)
+        }
+        
+        // Add control bar back to window
+        contentView.addSubview(customControlBar, positioned: .above, relativeTo: nil)
+        
+        NSLog("✅ Custom control bar swapped")
     }
     
     // Calculate position to show panel near bubble but fully visible on screen

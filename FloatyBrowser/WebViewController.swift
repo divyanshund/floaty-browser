@@ -198,8 +198,8 @@ class WebViewController: NSViewController {
     // UserDefaults key for tracking first-time minimize
     private let hasMinimizedBeforeKey = "hasMinimizedToBubbleBefore"
     
-    // Check if theme colors are enabled (decides view type at setup)
-    private let useThemeColors: Bool
+    // Check if theme colors are enabled (can change dynamically)
+    private var useThemeColors: Bool
     
     private let webConfiguration: WKWebViewConfiguration = {
         let config = WKWebViewConfiguration()
@@ -260,6 +260,14 @@ class WebViewController: NSViewController {
         setupTrafficLightArea()
         setupToolbar()
         setupWebView()
+        
+        // Listen for theme color mode changes
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(themeColorModeChanged(_:)),
+            name: .themeColorModeChanged,
+            object: nil
+        )
     }
     
     override func viewDidAppear() {
@@ -761,6 +769,120 @@ class WebViewController: NSViewController {
         webView.removeObserver(self, forKeyPath: #keyPath(WKWebView.canGoBack))
         webView.removeObserver(self, forKeyPath: #keyPath(WKWebView.canGoForward))
         webView.removeObserver(self, forKeyPath: #keyPath(WKWebView.url))
+        NotificationCenter.default.removeObserver(self)
+    }
+    
+    // MARK: - Dynamic Mode Switching
+    
+    @objc private func themeColorModeChanged(_ notification: Notification) {
+        guard let enabled = notification.userInfo?["enabled"] as? Bool else { return }
+        
+        NSLog("📢 WebViewController received theme color mode change: \(enabled)")
+        
+        // Update our mode
+        useThemeColors = enabled
+        
+        // Swap the views
+        swapToolbarViews(toColoredMode: enabled)
+        swapTrafficLightAreaViews(toColoredMode: enabled)
+        
+        // Re-apply colors if we switched to colored mode
+        if enabled {
+            applyThemeColorForCurrentURL()
+        }
+        
+        // Notify PanelWindow if we're in one
+        if let panelWindow = view.window as? PanelWindow {
+            panelWindow.handleThemeColorModeChanged(enabled)
+        }
+        
+        NSLog("✅ Successfully switched to \(enabled ? "COLORED" : "FROSTED GLASS") mode")
+    }
+    
+    private func swapToolbarViews(toColoredMode: Bool) {
+        NSLog("🔄 Swapping toolbar to \(toColoredMode ? "colored" : "frosted glass") mode")
+        
+        let trafficLightHeight: CGFloat = 30
+        let toolbarHeight: CGFloat = 44
+        let totalTopHeight = trafficLightHeight + toolbarHeight
+        let frame = NSRect(x: 0, y: view.bounds.height - totalTopHeight, width: view.bounds.width, height: toolbarHeight)
+        
+        // Store all subviews
+        let subviews = toolbar.subviews
+        
+        // Remove old toolbar
+        toolbar.removeFromSuperview()
+        
+        // Create new toolbar
+        if toColoredMode {
+            // Solid view
+            let solidView = NSView(frame: frame)
+            solidView.autoresizingMask = [.width, .minYMargin]
+            solidView.wantsLayer = true
+            solidView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+            toolbar = solidView
+        } else {
+            // Frosted glass
+            let visualEffectView = NSVisualEffectView(frame: frame)
+            visualEffectView.autoresizingMask = [.width, .minYMargin]
+            visualEffectView.material = .hudWindow
+            visualEffectView.blendingMode = .behindWindow
+            visualEffectView.state = .active
+            visualEffectView.alphaValue = 0.95
+            toolbar = visualEffectView
+        }
+        
+        // Re-add all subviews
+        for subview in subviews {
+            toolbar.addSubview(subview)
+        }
+        
+        // Add toolbar back
+        view.addSubview(toolbar)
+        
+        NSLog("✅ Toolbar swapped")
+    }
+    
+    private func swapTrafficLightAreaViews(toColoredMode: Bool) {
+        NSLog("🔄 Swapping traffic light area to \(toColoredMode ? "colored" : "frosted glass") mode")
+        
+        let trafficLightHeight: CGFloat = 30
+        let frame = NSRect(x: 0, y: view.bounds.height - trafficLightHeight, width: view.bounds.width, height: trafficLightHeight)
+        
+        // Store all subviews
+        let subviews = trafficLightArea.subviews
+        
+        // Remove old traffic light area
+        trafficLightArea.removeFromSuperview()
+        
+        // Create new traffic light area
+        if toColoredMode {
+            // Solid view
+            let solidView = NSView(frame: frame)
+            solidView.autoresizingMask = [.width, .minYMargin]
+            solidView.wantsLayer = true
+            solidView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+            trafficLightArea = solidView
+        } else {
+            // Frosted glass
+            let visualEffectView = NSVisualEffectView(frame: frame)
+            visualEffectView.autoresizingMask = [.width, .minYMargin]
+            visualEffectView.material = .hudWindow
+            visualEffectView.blendingMode = .behindWindow
+            visualEffectView.state = .active
+            visualEffectView.alphaValue = 0.95
+            trafficLightArea = visualEffectView
+        }
+        
+        // Re-add all subviews
+        for subview in subviews {
+            trafficLightArea.addSubview(subview)
+        }
+        
+        // Add traffic light area back
+        view.addSubview(trafficLightArea)
+        
+        NSLog("✅ Traffic light area swapped")
     }
     
     // MARK: - Network Error Detection
@@ -893,7 +1015,7 @@ extension WebViewController: WKUIDelegate {
 // MARK: - Theme Color Management (Test Implementation)
 
 extension WebViewController {
-    private func applyThemeColorForCurrentURL() {
+    func applyThemeColorForCurrentURL() {
         guard let url = webView.url, let host = url.host else {
             NSLog("⚠️ No URL for theme color")
             return

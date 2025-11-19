@@ -1101,7 +1101,25 @@ extension WebViewController {
     private func extractColorFromHeader(completion: @escaping (NSColor?) -> Void) {
         let script = """
         (function() {
-            // Try common header/nav selectors in priority order
+            console.log('🔍 Starting header color extraction...');
+            
+            // Helper: Check if element is at/near top of viewport
+            function isTopElement(el) {
+                var rect = el.getBoundingClientRect();
+                return rect.top >= -50 && rect.top <= 200; // Top or sticky header
+            }
+            
+            // Helper: Check if color is valid
+            function isValidColor(color) {
+                if (!color || color === 'transparent' || 
+                    color === 'rgba(0, 0, 0, 0)' ||
+                    color.includes('rgba(255, 255, 255, 0)')) {
+                    return false;
+                }
+                return true;
+            }
+            
+            // Strategy 1: Find the TOPMOST visible header/nav with solid background
             var selectors = [
                 'header',
                 'nav',
@@ -1113,39 +1131,65 @@ extension WebViewController {
                 '#header',
                 '#navbar',
                 '.main-header',
-                '.navigation'
+                '.navigation',
+                '[class*="header"]',
+                '[class*="navbar"]',
+                '[class*="navigation"]'
             ];
             
+            var candidates = [];
+            
             for (var i = 0; i < selectors.length; i++) {
-                var element = document.querySelector(selectors[i]);
-                if (element) {
-                    var style = window.getComputedStyle(element);
-                    var bgColor = style.backgroundColor;
-                    
-                    // Skip transparent/empty backgrounds
-                    if (bgColor && 
-                        bgColor !== 'transparent' && 
-                        bgColor !== 'rgba(0, 0, 0, 0)' &&
-                        !bgColor.includes('rgba(255, 255, 255, 0)')) {
+                var elements = document.querySelectorAll(selectors[i]);
+                for (var j = 0; j < elements.length; j++) {
+                    var el = elements[j];
+                    if (isTopElement(el)) {
+                        var style = window.getComputedStyle(el);
+                        var bgColor = style.backgroundColor;
                         
-                        console.log('Found header element: ' + selectors[i]);
-                        console.log('Background color: ' + bgColor);
-                        return bgColor;
+                        if (isValidColor(bgColor)) {
+                            var rect = el.getBoundingClientRect();
+                            candidates.push({
+                                element: selectors[i] + '[' + j + ']',
+                                color: bgColor,
+                                top: rect.top,
+                                width: rect.width,
+                                height: rect.height
+                            });
+                        }
                     }
                 }
             }
             
+            console.log('🔍 Found ' + candidates.length + ' candidate headers');
+            
+            // Sort by: 1) closest to top, 2) widest
+            candidates.sort(function(a, b) {
+                if (Math.abs(a.top - b.top) < 10) {
+                    return b.width - a.width; // Prefer wider
+                }
+                return a.top - b.top; // Prefer higher
+            });
+            
+            if (candidates.length > 0) {
+                var best = candidates[0];
+                console.log('✅ Best header: ' + best.element);
+                console.log('   Color: ' + best.color);
+                console.log('   Position: top=' + best.top + ', width=' + best.width);
+                return best.color;
+            }
+            
+            console.log('⚠️ No header found, trying body background');
+            
             // Fallback: try body background (some minimal sites)
             var bodyStyle = window.getComputedStyle(document.body);
             var bodyBg = bodyStyle.backgroundColor;
-            if (bodyBg && 
-                bodyBg !== 'transparent' && 
-                bodyBg !== 'rgba(0, 0, 0, 0)' &&
-                !bodyBg.includes('rgba(255, 255, 255, 0)')) {
-                console.log('Using body background: ' + bodyBg);
+            if (isValidColor(bodyBg)) {
+                console.log('✅ Using body background: ' + bodyBg);
                 return bodyBg;
             }
             
+            console.log('❌ No valid color found');
             return null;
         })();
         """

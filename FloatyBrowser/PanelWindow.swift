@@ -66,15 +66,19 @@ class PanelWindow: NSPanel {
     private var savedNormalFrame: NSRect?
     
     // Custom control buttons
-    private var customControlBar: NSVisualEffectView!
+    private var customControlBar: NSView!  // Can be NSVisualEffectView OR NSView
     private var closeWindowButton: NSButton!
     private var fullscreenButton: NSButton!
     private var minimizeToBubbleButton: NSButton!
+    private let useThemeColors: Bool  // Decide at creation
     
     weak var panelDelegate: PanelWindowDelegate?
     
     init(id: UUID, url: String, nearBubble bubbleFrame: NSRect) {
         self.panelId = id
+        
+        // Decide mode at creation - same as WebViewController
+        self.useThemeColors = AppearancePreferencesViewController.isThemeColorsEnabled()
         
         // Calculate position near the bubble
         let position = PanelWindow.calculatePosition(nearBubble: bubbleFrame, panelSize: defaultSize)
@@ -86,6 +90,8 @@ class PanelWindow: NSPanel {
             backing: .buffered,
             defer: false
         )
+        
+        NSLog("🎨 PanelWindow initialized with theme colors: \(useThemeColors)")
         
         setupWindow()
         setupWebView(url: url)
@@ -180,18 +186,36 @@ class PanelWindow: NSPanel {
         let margin: CGFloat = 8
         let buttonSize: CGFloat = 20  // Slightly larger for better click target
         
-        // Create translucent control bar
-        customControlBar = NSVisualEffectView(frame: NSRect(
-            x: 0,
-            y: contentView.bounds.height - controlBarHeight,
-            width: contentView.bounds.width,
-            height: controlBarHeight
-        ))
-        customControlBar.autoresizingMask = [.width, .minYMargin]
-        customControlBar.material = .hudWindow
-        customControlBar.blendingMode = .behindWindow
-        customControlBar.state = .active
-        customControlBar.wantsLayer = true
+        // Create control bar - solid or frosted glass based on setting
+        if useThemeColors {
+            // Mode 1: Solid colored view
+            let solidView = NSView(frame: NSRect(
+                x: 0,
+                y: contentView.bounds.height - controlBarHeight,
+                width: contentView.bounds.width,
+                height: controlBarHeight
+            ))
+            solidView.autoresizingMask = [.width, .minYMargin]
+            solidView.wantsLayer = true
+            solidView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor  // Start with default
+            customControlBar = solidView
+            NSLog("✅ Created SOLID control bar (theme colors enabled)")
+        } else {
+            // Mode 2: Frosted glass vibrancy
+            let visualEffectView = NSVisualEffectView(frame: NSRect(
+                x: 0,
+                y: contentView.bounds.height - controlBarHeight,
+                width: contentView.bounds.width,
+                height: controlBarHeight
+            ))
+            visualEffectView.autoresizingMask = [.width, .minYMargin]
+            visualEffectView.material = .hudWindow
+            visualEffectView.blendingMode = .behindWindow
+            visualEffectView.state = .active
+            visualEffectView.wantsLayer = true
+            customControlBar = visualEffectView
+            NSLog("✅ Created FROSTED GLASS control bar (theme colors disabled)")
+        }
         
         var xOffset = margin
         
@@ -326,6 +350,18 @@ class PanelWindow: NSPanel {
         NSLog("🔴 PanelWindow.performClose() called - sender: %@", String(describing: sender))
         NSLog("🔴 This should ONLY be called by red traffic light button")
         panelDelegate?.panelWindowDidRequestClose(self)
+    }
+    
+    // MARK: - Theme Color
+    
+    func applyThemeColorToControlBar(_ color: NSColor) {
+        guard useThemeColors else {
+            NSLog("⚠️ Theme colors disabled, not applying to control bar")
+            return
+        }
+        
+        customControlBar.layer?.backgroundColor = color.cgColor
+        NSLog("✅ Applied theme color to PanelWindow control bar: \(color)")
     }
     
     // Calculate position to show panel near bubble but fully visible on screen

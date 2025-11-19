@@ -902,9 +902,24 @@ extension WebViewController {
         let color = getTestColorFor(host: host)
         NSLog("🎨 Applying test color for \(host): \(color)")
         
-        // Apply to both toolbars
+        // Apply to toolbar
         toolbar.layer?.backgroundColor = color.cgColor
+        NSLog("✅ Toolbar background set to: \(color)")
+        NSLog("📏 Toolbar frame: \(toolbar.frame)")
+        NSLog("🔧 Toolbar has layer: \(toolbar.layer != nil)")
+        
+        // Apply to traffic light area
         trafficLightArea.layer?.backgroundColor = color.cgColor
+        NSLog("✅ Traffic light area background set to: \(color)")
+        NSLog("📏 Traffic light area frame: \(trafficLightArea.frame)")
+        NSLog("🔧 Traffic light area has layer: \(trafficLightArea.layer != nil)")
+        NSLog("🎭 Traffic light area class: \(type(of: trafficLightArea))")
+        
+        // Apply to PanelWindow's custom control bar if we're in a panel
+        if let panelWindow = view.window as? PanelWindow {
+            panelWindow.applyThemeColorToControlBar(color)
+            NSLog("✅ Applied color to PanelWindow control bar")
+        }
         
         NSLog("✅ Theme color applied successfully")
     }

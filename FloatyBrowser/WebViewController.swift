@@ -786,9 +786,12 @@ class WebViewController: NSViewController {
         swapToolbarViews(toColoredMode: enabled)
         swapTrafficLightAreaViews(toColoredMode: enabled)
         
-        // Re-apply colors if we switched to colored mode
+        // Re-apply colors if we switched to colored mode, or reset to default
         if enabled {
             applyThemeColorForCurrentURL()
+        } else {
+            // Reset to default icon colors (gray icons for frosted glass)
+            resetToDefaultIconColors()
         }
         
         // Notify PanelWindow if we're in one
@@ -1535,6 +1538,9 @@ extension WebViewController {
             panelWindow.applyThemeColorToControlBar(color)
         }
         
+        // Adapt icon and text colors for accessibility
+        adaptUIElementColors(forBackgroundColor: color)
+        
         NSLog("✅ Theme color applied successfully")
     }
     
@@ -1554,7 +1560,106 @@ extension WebViewController {
             panelWindow.applyThemeColorToControlBar(defaultColor)
         }
         
+        // Adapt icon and text colors for accessibility
+        adaptUIElementColors(forBackgroundColor: defaultColor)
+        
         currentThemeColor = nil
+    }
+    
+    /// Adapt icon and text colors based on background color luminance
+    /// Ensures proper contrast and accessibility
+    private func adaptUIElementColors(forBackgroundColor backgroundColor: NSColor) {
+        guard let rgbColor = backgroundColor.usingColorSpace(.deviceRGB) else {
+            NSLog("⚠️ Could not convert background color to RGB")
+            return
+        }
+        
+        // Calculate relative luminance (WCAG formula)
+        let red = rgbColor.redComponent
+        let green = rgbColor.greenComponent
+        let blue = rgbColor.blueComponent
+        let luminance = 0.299 * red + 0.587 * green + 0.114 * blue
+        
+        // Determine if background is light or dark
+        // Threshold: 0.5 (50% gray)
+        let isDarkBackground = luminance < 0.5
+        
+        // Choose appropriate colors for icons and text
+        let iconColor: NSColor
+        let textColor: NSColor
+        let placeholderColor: NSColor
+        
+        if isDarkBackground {
+            // Light icons and text for dark backgrounds
+            iconColor = NSColor.white.withAlphaComponent(0.9)
+            textColor = NSColor.white
+            placeholderColor = NSColor.white.withAlphaComponent(0.5)
+            NSLog("🎨 Dark background detected (luminance: \(luminance)) → Using LIGHT icons/text")
+        } else {
+            // Dark icons and text for light backgrounds
+            iconColor = NSColor.black.withAlphaComponent(0.7)
+            textColor = NSColor.black
+            placeholderColor = NSColor.black.withAlphaComponent(0.4)
+            NSLog("🎨 Light background detected (luminance: \(luminance)) → Using DARK icons/text")
+        }
+        
+        // Apply to navigation buttons
+        backButton.contentTintColor = iconColor
+        forwardButton.contentTintColor = iconColor
+        reloadButton.contentTintColor = iconColor
+        newBubbleButton.contentTintColor = iconColor
+        minimizeToBubbleButton.contentTintColor = iconColor
+        
+        // Apply to URL field text
+        urlField.textColor = textColor
+        urlField.placeholderAttributedString = NSAttributedString(
+            string: "Search or enter website",
+            attributes: [
+                .foregroundColor: placeholderColor,
+                .font: NSFont.systemFont(ofSize: 13)
+            ]
+        )
+        
+        // Update URL field border for contrast
+        if isDarkBackground {
+            urlField.layer?.borderColor = NSColor.white.withAlphaComponent(0.2).cgColor
+        } else {
+            urlField.layer?.borderColor = NSColor.black.withAlphaComponent(0.15).cgColor
+        }
+        
+        NSLog("✅ UI elements adapted for accessibility")
+    }
+    
+    /// Reset icon and text colors to default (for frosted glass mode)
+    private func resetToDefaultIconColors() {
+        NSLog("🎨 Resetting to default icon colors (frosted glass mode)")
+        
+        // Default system colors (gray icons)
+        let defaultIconColor = NSColor.secondaryLabelColor
+        let defaultTextColor = NSColor.labelColor
+        let defaultPlaceholderColor = NSColor.placeholderTextColor
+        
+        // Reset navigation buttons
+        backButton.contentTintColor = defaultIconColor
+        forwardButton.contentTintColor = defaultIconColor
+        reloadButton.contentTintColor = defaultIconColor
+        newBubbleButton.contentTintColor = defaultIconColor
+        minimizeToBubbleButton.contentTintColor = defaultIconColor
+        
+        // Reset URL field text
+        urlField.textColor = defaultTextColor
+        urlField.placeholderAttributedString = NSAttributedString(
+            string: "Search or enter website",
+            attributes: [
+                .foregroundColor: defaultPlaceholderColor,
+                .font: NSFont.systemFont(ofSize: 13)
+            ]
+        )
+        
+        // Reset URL field border
+        urlField.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.3).cgColor
+        
+        NSLog("✅ Default icon colors restored")
     }
     
     /// Called when theme color mode is toggled in preferences

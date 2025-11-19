@@ -205,21 +205,12 @@ class WebViewController: NSViewController {
     private var currentThemeColor: NSColor?
     private var currentFavicon: NSImage?
     
-    private let webConfiguration: WKWebViewConfiguration = {
-        let config = WKWebViewConfiguration()
-        config.processPool = WKProcessPool()
+    // Use shared configuration for session sharing across all bubbles
+    private lazy var webConfiguration: WKWebViewConfiguration = {
+        // Get shared configuration with process pool and data store
+        let config = SharedWebConfiguration.shared.createConfiguration()
         
-        // Security settings
-        config.preferences.javaScriptCanOpenWindowsAutomatically = false
-        config.allowsAirPlayForMediaPlayback = false
-        
-        if #available(macOS 11.0, *) {
-            config.defaultWebpagePreferences.allowsContentJavaScript = true
-        } else {
-            config.preferences.javaScriptEnabled = true
-        }
-        
-        // Inject viewport meta tag for responsive design
+        // Add viewport meta tag injection (per-bubble customization)
         let viewportScript = WKUserScript(
             source: """
             var meta = document.createElement('meta');
@@ -231,6 +222,8 @@ class WebViewController: NSViewController {
             forMainFrameOnly: true
         )
         config.userContentController.addUserScript(viewportScript)
+        
+        NSLog("✅ WebViewController: Using shared WebKit configuration for session sharing")
         
         return config
     }()

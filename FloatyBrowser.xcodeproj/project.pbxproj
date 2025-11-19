@@ -12,6 +12,7 @@
 		1A0005 /* BubbleWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0006 /* BubbleWindow.swift */; };
 		1A0007 /* PanelWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0008 /* PanelWindow.swift */; };
 		1A0009 /* WebViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0010 /* WebViewController.swift */; };
+		1A0070 /* SharedWebConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0071 /* SharedWebConfiguration.swift */; };
 		1A0011 /* PersistenceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0012 /* PersistenceManager.swift */; };
 		1A0020 /* FloatyBrowserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0021 /* FloatyBrowserTests.swift */; };
 		1A0050 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0051 /* main.swift */; };
@@ -39,6 +40,7 @@
 		1A0006 /* BubbleWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BubbleWindow.swift; sourceTree = "<group>"; };
 		1A0008 /* PanelWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanelWindow.swift; sourceTree = "<group>"; };
 		1A0010 /* WebViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewController.swift; sourceTree = "<group>"; };
+		1A0071 /* SharedWebConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedWebConfiguration.swift; sourceTree = "<group>"; };
 		1A0012 /* PersistenceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceManager.swift; sourceTree = "<group>"; };
 		1A0013 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		1A0014 /* FloatyBrowser.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FloatyBrowser.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -90,6 +92,7 @@
 				1A0006 /* BubbleWindow.swift */,
 				1A0008 /* PanelWindow.swift */,
 				1A0010 /* WebViewController.swift */,
+				1A0071 /* SharedWebConfiguration.swift */,
 				1A0012 /* PersistenceManager.swift */,
 				1A0061 /* OnboardingWindowController.swift */,
 				1A0063 /* OnboardingViewController.swift */,
@@ -224,6 +227,7 @@
 				1A0005 /* BubbleWindow.swift in Sources */,
 				1A0007 /* PanelWindow.swift in Sources */,
 				1A0009 /* WebViewController.swift in Sources */,
+				1A0070 /* SharedWebConfiguration.swift in Sources */,
 				1A0011 /* PersistenceManager.swift in Sources */,
 				1A0060 /* OnboardingWindowController.swift in Sources */,
 				1A0062 /* OnboardingViewController.swift in Sources */,

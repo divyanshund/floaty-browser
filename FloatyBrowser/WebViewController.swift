@@ -415,6 +415,9 @@ class WebViewController: NSViewController {
         urlField.layer?.cornerRadius = 17  // Super smooth rounded corners
         urlField.layer?.masksToBounds = true
         
+        // CRITICAL: Must set drawsBackground = true to override bezel's white background
+        urlField.drawsBackground = true
+        
         // Default background: subtle gray with transparency  
         // Will be updated dynamically when theme colors are applied
         urlField.backgroundColor = NSColor(white: 0.85, alpha: 0.35)

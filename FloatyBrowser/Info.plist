@@ -38,6 +38,10 @@
 	<string>Floaty Browser needs permission to handle global shortcuts.</string>
 	<key>NSAccessibilityUsageDescription</key>
 	<string>Floaty Browser needs accessibility permission to enable global keyboard shortcuts.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Websites you visit may request access to your camera for video calls and conferencing.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Websites you visit may request access to your microphone for voice calls and recording.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2025. All rights reserved.</string>
 	<key>LSApplicationCategoryType</key>

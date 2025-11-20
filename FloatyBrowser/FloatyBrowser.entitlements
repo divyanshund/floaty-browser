@@ -8,6 +8,10 @@
 	<true/>
 	<key>com.apple.security.network.server</key>
 	<false/>
+	<key>com.apple.security.device.camera</key>
+	<true/>
+	<key>com.apple.security.device.microphone</key>
+	<true/>
 </dict>
 </plist>
 

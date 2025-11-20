@@ -1648,28 +1648,38 @@ extension WebViewController {
         let luminance = 0.299 * red + 0.587 * green + 0.114 * blue
         
         if luminance < 0.5 {
-            // Dark background → Lighten the color
-            // Increase brightness significantly for readability
-            let lightenFactor: CGFloat = 0.7  // 70% lighter
+            // Dark background → Lighten the color significantly
+            let lightenFactor: CGFloat = 0.8  // 80% lighter for better contrast
+            let textRed = red + (1.0 - red) * lightenFactor
+            let textGreen = green + (1.0 - green) * lightenFactor
+            let textBlue = blue + (1.0 - blue) * lightenFactor
+            
+            // Ensure minimum brightness (at least 0.7 for readability on dark backgrounds)
+            let minBrightness: CGFloat = 0.7
             let textColor = NSColor(
-                red: red + (1.0 - red) * lightenFactor,
-                green: green + (1.0 - green) * lightenFactor,
-                blue: blue + (1.0 - blue) * lightenFactor,
-                alpha: 1.0  // Full opacity for text
+                red: max(textRed, minBrightness),
+                green: max(textGreen, minBrightness),
+                blue: max(textBlue, minBrightness),
+                alpha: 1.0
             )
-            NSLog("🎨 Dark address bar (luminance: \(luminance)) → Lightened text color")
+            NSLog("🎨 Dark address bar (luminance: \(luminance)) → Lightened text (R:\(textRed) G:\(textGreen) B:\(textBlue))")
             return textColor
         } else {
-            // Light background → Darken the color
-            // Decrease brightness significantly for readability
-            let darkenFactor: CGFloat = 0.7  // 70% darker
+            // Light background → Darken the color significantly
+            let darkenFactor: CGFloat = 0.85  // 85% darker for strong contrast
+            let textRed = red * (1.0 - darkenFactor)
+            let textGreen = green * (1.0 - darkenFactor)
+            let textBlue = blue * (1.0 - darkenFactor)
+            
+            // Ensure maximum darkness (at most 0.3 for readability on light backgrounds)
+            let maxBrightness: CGFloat = 0.3
             let textColor = NSColor(
-                red: red * (1.0 - darkenFactor),
-                green: green * (1.0 - darkenFactor),
-                blue: blue * (1.0 - darkenFactor),
-                alpha: 1.0  // Full opacity for text
+                red: min(textRed, maxBrightness),
+                green: min(textGreen, maxBrightness),
+                blue: min(textBlue, maxBrightness),
+                alpha: 1.0
             )
-            NSLog("🎨 Light address bar (luminance: \(luminance)) → Darkened text color")
+            NSLog("🎨 Light address bar (luminance: \(luminance)) → Darkened text (R:\(textRed) G:\(textGreen) B:\(textBlue))")
             return textColor
         }
     }

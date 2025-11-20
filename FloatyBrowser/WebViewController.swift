@@ -415,9 +415,12 @@ class WebViewController: NSViewController {
         urlField.layer?.cornerRadius = 17  // Super smooth rounded corners
         urlField.layer?.masksToBounds = true
         
-        // Background: semi-transparent for subtle blend with toolbar
-        // Will be updated dynamically based on toolbar color
-        urlField.backgroundColor = NSColor.white.withAlphaComponent(0.12)
+        // Default background: subtle gray with transparency  
+        // Will be updated dynamically when theme colors are applied
+        urlField.backgroundColor = NSColor(white: 0.85, alpha: 0.35)
+        
+        // Default text color: dark (readable on light background)
+        urlField.textColor = NSColor.labelColor
         
         // No border for minimal look
         urlField.layer?.borderWidth = 0
@@ -1580,7 +1583,7 @@ extension WebViewController {
         // Apply to address bar
         urlField.backgroundColor = addressBarColor
         
-        NSLog("✅ Address bar style updated to blend with toolbar")
+        NSLog("✅ Address bar style updated to blend with toolbar (luminance: \(luminance))")
     }
     
     /// Reset to default gray theme
@@ -1670,7 +1673,11 @@ extension WebViewController {
             ]
         )
         
-        NSLog("✅ UI elements adapted for accessibility")
+        if isDarkBackground {
+            NSLog("✅ UI elements adapted → Address bar text: WHITE")
+        } else {
+            NSLog("✅ UI elements adapted → Address bar text: DARK")
+        }
     }
     
     /// Reset icon and text colors to default (for frosted glass mode)
@@ -1698,8 +1705,8 @@ extension WebViewController {
             ]
         )
         
-        // Reset address bar background to default subtle style
-        urlField.backgroundColor = NSColor.white.withAlphaComponent(0.12)
+        // Reset address bar background to default (subtle gray)
+        urlField.backgroundColor = NSColor(white: 0.85, alpha: 0.35)
         
         NSLog("✅ Default icon colors restored")
     }

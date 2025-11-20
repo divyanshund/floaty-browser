@@ -1151,10 +1151,13 @@ extension WebViewController: WKNavigationDelegate {
             if let hasOpener = result as? Bool {
                 if hasOpener {
                     NSLog("✅ [DIAGNOSTIC] window.opener EXISTS in popup!")
+                    NSLog("✅ [DIAGNOSTIC] Standard OAuth flow should work!")
                 } else {
                     NSLog("❌ [DIAGNOSTIC] window.opener is NULL in popup!")
                     NSLog("❌ [DIAGNOSTIC] This means parent-child relationship is broken!")
                     NSLog("❌ [DIAGNOSTIC] Parent cannot close this popup via JavaScript")
+                    NSLog("💡 [DIAGNOSTIC] Workaround: Using auto-close detection for OAuth callbacks")
+                    NSLog("💡 [DIAGNOSTIC] Will detect OAuth completion patterns and auto-close")
                 }
             } else if let error = error {
                 NSLog("⚠️ [DIAGNOSTIC] Failed to check window.opener: \(error.localizedDescription)")
@@ -1275,9 +1278,13 @@ extension WebViewController: WKUIDelegate {
             urlString.contains("/auth") ||
             urlString.contains("/signin") ||
             urlString.contains("/login") ||
+            urlString.contains("/gsi/") ||  // Google Identity Services
             urlString.contains("accounts.google.com") ||
             urlString.contains("login.microsoftonline.com") ||
-            urlString.contains("appleid.apple.com")
+            urlString.contains("appleid.apple.com") ||
+            urlString.contains("twitter.com/oauth") ||
+            urlString.contains("facebook.com/login") ||
+            urlString.contains("github.com/login")
         
         if isOAuthRelated {
             hasSeenOAuthURL = true
@@ -1295,31 +1302,44 @@ extension WebViewController: WKUIDelegate {
             urlString.contains("/auth/callback") ||
             path.contains("/callback") ||
             path.contains("/redirect") ||
+            // Google Identity Services patterns
+            urlString.contains("/gsi/transform") ||  // Google's OAuth transformation page
+            urlString.contains("/gsi/consent") ||
+            urlString.contains("/gsi/select") ||
             // Query parameters indicating OAuth callback
             query.contains("code=") ||
             query.contains("oauth_token=") ||
             query.contains("oauth_verifier=") ||
             query.contains("state=") && query.contains("code=") ||
+            query.contains("authuser=") ||  // Google auth user parameter
             // Success indicators
             urlString.contains("login_success") ||
             urlString.contains("auth_success") ||
             urlString.contains("authenticated") ||
+            urlString.contains("approval_prompt") ||
             // Blank page after OAuth (only if we've seen OAuth URLs before)
             (isBlankPage && hasSeenOAuthURL)
         
         if isOAuthCallback {
             NSLog("🎯 OAuth callback detected: \(url.absoluteString)")
             NSLog("   ↳ Pattern: \(isBlankPage ? "blank page after OAuth" : "callback URL")")
-            NSLog("   ↳ Auto-closing popup in 1.5 seconds to complete authentication")
+            NSLog("   ↳ window.opener is broken (see diagnostics), so auto-closing popup")
+            NSLog("   ↳ Auto-closing in 2 seconds to allow OAuth completion")
             
-            // Give JavaScript time to send postMessage to parent, then close
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            // Since window.opener is broken (see diagnostics), the popup can't communicate
+            // with parent via postMessage anyway. We close after a delay to ensure:
+            // 1. OAuth callback completes in the background (cookies/tokens set)
+            // 2. Any redirects finish
+            // 3. Parent window has time to detect the authentication
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
                 guard let self = self else { return }
                 NSLog("⏰ Auto-close timer triggered - closing OAuth popup")
+                NSLog("⏰ Parent window should now have authentication cookies/session")
                 self.delegate?.webViewControllerDidRequestClose(self)
             }
         } else if isPopupWindow {
             NSLog("🔍 Popup navigation: \(url.absoluteString)")
+            NSLog("🔍 Not an OAuth callback - popup will remain open")
         }
     }
 }

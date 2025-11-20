@@ -268,6 +268,31 @@ class WebViewController: NSViewController {
         view.window?.makeFirstResponder(webView)
     }
     
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        
+        // Manually update URL field width to maintain gap with plus button
+        // This keeps the address bar expanding with the window while keeping the plus button separate
+        let buttonSize: CGFloat = 28
+        let rightMargin: CGFloat = 12
+        let spacingBeforePlus: CGFloat = 12
+        
+        // Calculate where plus button should be (it auto-positions via autoresizingMask)
+        let plusButtonX = view.bounds.width - buttonSize - rightMargin
+        
+        // Update URL field width to fill space between its current X and the plus button
+        let urlFieldX = urlField.frame.origin.x  // Keep current left position
+        let newUrlFieldWidth = plusButtonX - urlFieldX - spacingBeforePlus
+        
+        // Only update if width actually changed (avoid unnecessary updates)
+        if abs(urlField.frame.width - newUrlFieldWidth) > 0.1 {
+            urlField.frame.size.width = newUrlFieldWidth
+            
+            // Also update progress bar to match
+            addressBarProgressView.frame.size.width = newUrlFieldWidth
+        }
+    }
+    
     private func setupToolbar() {
         // Add space for traffic lights (standard macOS titlebar height is ~28px, we'll use 30 for comfort)
         let trafficLightHeight: CGFloat = 30
@@ -376,7 +401,7 @@ class WebViewController: NSViewController {
         let urlFieldY = (toolbarHeight - urlFieldHeight) / 2
         
         urlField.frame = NSRect(x: xOffset, y: urlFieldY, width: urlFieldWidth, height: urlFieldHeight)
-        urlField.autoresizingMask = [.width]  // Expand horizontally with window
+        // No autoresizing - we'll handle layout manually to keep gap with plus button
         urlField.placeholderString = "Search or enter website"
         urlField.delegate = self
         urlField.font = NSFont.systemFont(ofSize: 13)
@@ -405,7 +430,7 @@ class WebViewController: NSViewController {
             width: urlField.frame.width,
             height: progressBarHeight
         )
-        addressBarProgressView.autoresizingMask = [.width]  // Expand with URL field
+        // No autoresizing - we'll update in viewDidLayout
         addressBarProgressView.wantsLayer = true
         addressBarProgressView.layer?.cornerRadius = 1.5  // Slight rounding
         addressBarProgressView.layer?.masksToBounds = true

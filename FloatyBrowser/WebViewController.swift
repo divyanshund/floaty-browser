@@ -376,7 +376,7 @@ class WebViewController: NSViewController {
         let urlFieldY = (toolbarHeight - urlFieldHeight) / 2
         
         urlField.frame = NSRect(x: xOffset, y: urlFieldY, width: urlFieldWidth, height: urlFieldHeight)
-        // No autoresizing - keep fixed gap between address bar and plus button
+        urlField.autoresizingMask = [.width]  // Expand horizontally with window
         urlField.placeholderString = "Search or enter website"
         urlField.delegate = self
         urlField.font = NSFont.systemFont(ofSize: 13)
@@ -405,6 +405,7 @@ class WebViewController: NSViewController {
             width: urlField.frame.width,
             height: progressBarHeight
         )
+        addressBarProgressView.autoresizingMask = [.width]  // Expand with URL field
         addressBarProgressView.wantsLayer = true
         addressBarProgressView.layer?.cornerRadius = 1.5  // Slight rounding
         addressBarProgressView.layer?.masksToBounds = true

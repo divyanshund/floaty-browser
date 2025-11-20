@@ -104,8 +104,23 @@ class BrowserStyleTextField: NSTextField {
         // Select all text on first click - needs slight delay for field editor to be ready
         if !wasEditing {
             DispatchQueue.main.async { [weak self] in
-                if let fieldEditor = self?.currentEditor() as? NSTextView {
+                guard let self = self else { return }
+                if let fieldEditor = self.currentEditor() as? NSTextView {
                     fieldEditor.selectedRange = NSRange(location: 0, length: fieldEditor.string.count)
+                    
+                    // Apply indentation to field editor
+                    if self.hasLockIcon {
+                        let paragraphStyle = NSMutableParagraphStyle()
+                        paragraphStyle.firstLineHeadIndent = 30
+                        paragraphStyle.headIndent = 30
+                        
+                        var typingAttributes = fieldEditor.typingAttributes
+                        typingAttributes[.paragraphStyle] = paragraphStyle
+                        fieldEditor.typingAttributes = typingAttributes
+                        
+                        let range = NSRange(location: 0, length: fieldEditor.textStorage?.length ?? 0)
+                        fieldEditor.textStorage?.addAttribute(.paragraphStyle, value: paragraphStyle, range: range)
+                    }
                 }
             }
         }
@@ -115,12 +130,31 @@ class BrowserStyleTextField: NSTextField {
         super.textDidBeginEditing(notification)
         isCurrentlyEditing = true
         animateFocusGlow(isFocused: true)
+        
+        // Apply text indentation to field editor when editing starts
+        if hasLockIcon, let fieldEditor = currentEditor() as? NSTextView {
+            let paragraphStyle = NSMutableParagraphStyle()
+            paragraphStyle.firstLineHeadIndent = 30
+            paragraphStyle.headIndent = 30
+            
+            // Set typing attributes for the field editor
+            var typingAttributes = fieldEditor.typingAttributes
+            typingAttributes[.paragraphStyle] = paragraphStyle
+            fieldEditor.typingAttributes = typingAttributes
+            
+            // Apply to existing text storage
+            let range = NSRange(location: 0, length: fieldEditor.textStorage?.length ?? 0)
+            fieldEditor.textStorage?.addAttribute(.paragraphStyle, value: paragraphStyle, range: range)
+        }
     }
     
     override func textDidEndEditing(_ notification: Notification) {
         super.textDidEndEditing(notification)
         isCurrentlyEditing = false
         animateFocusGlow(isFocused: false)
+        
+        // Ensure indentation is preserved after editing
+        updateTextIndentation()
     }
 }
 
@@ -600,6 +634,8 @@ class WebViewController: NSViewController {
         } else if keyPath == #keyPath(WKWebView.url) {
             if let url = webView.url {
                 urlField.stringValue = url.absoluteString
+                // Apply indentation after setting URL (preserves lock icon spacing)
+                urlField.updateTextIndentation()
                 delegate?.webViewController(self, didUpdateURL: url.absoluteString)
                 // Update lock icon when URL changes
                 updateLockIcon()

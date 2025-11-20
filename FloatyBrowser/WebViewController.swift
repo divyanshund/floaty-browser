@@ -12,7 +12,14 @@ import WebKit
 // Selects all text on first click, allows normal cursor positioning while editing
 class BrowserStyleTextField: NSTextField {
     private var isCurrentlyEditing = false
-    var hasLockIcon: Bool = false  // Controls left padding for lock icon
+    var hasLockIcon: Bool = false {  // Controls left padding for lock icon
+        didSet {
+            // Update text indentation when lock icon visibility changes
+            updateTextIndentation()
+            needsDisplay = true
+            invalidateIntrinsicContentSize()
+        }
+    }
     
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -37,6 +44,31 @@ class BrowserStyleTextField: NSTextField {
             size.width += 30  // Extra width for lock icon padding
         }
         return size
+    }
+    
+    // Add text indentation when lock icon is visible
+    func updateTextIndentation() {
+        if hasLockIcon {
+            // Create paragraph style with left indent
+            let paragraphStyle = NSMutableParagraphStyle()
+            paragraphStyle.firstLineHeadIndent = 30
+            paragraphStyle.headIndent = 30
+            
+            // Apply to current text if any
+            if let currentText = self.attributedStringValue.string as String?, !currentText.isEmpty {
+                let attributes: [NSAttributedString.Key: Any] = [
+                    .paragraphStyle: paragraphStyle,
+                    .foregroundColor: self.textColor ?? NSColor.labelColor,
+                    .font: self.font ?? NSFont.systemFont(ofSize: 13)
+                ]
+                self.attributedStringValue = NSAttributedString(string: currentText, attributes: attributes)
+            }
+        } else {
+            // Remove indentation
+            if let currentText = self.attributedStringValue.string as String?, !currentText.isEmpty {
+                self.stringValue = currentText
+            }
+        }
     }
     
     private func animateFocusGlow(isFocused: Bool) {
@@ -1641,11 +1673,20 @@ extension WebViewController {
         
         // Address bar text: Use SAME color as icons (icons are always correct!)
         urlField.textColor = iconColor
+        
+        // Create placeholder with proper indentation if lock icon is visible
+        let paragraphStyle = NSMutableParagraphStyle()
+        if urlField.hasLockIcon {
+            paragraphStyle.firstLineHeadIndent = 30
+            paragraphStyle.headIndent = 30
+        }
+        
         urlField.placeholderAttributedString = NSAttributedString(
             string: "Search or enter website",
             attributes: [
                 .foregroundColor: iconColor.withAlphaComponent(0.5),
-                .font: NSFont.systemFont(ofSize: 13)
+                .font: NSFont.systemFont(ofSize: 13),
+                .paragraphStyle: paragraphStyle
             ]
         )
         
@@ -1702,11 +1743,20 @@ extension WebViewController {
         
         // Reset URL field text - use SAME color as icons
         urlField.textColor = defaultIconColor
+        
+        // Create placeholder with proper indentation if lock icon is visible
+        let paragraphStyle = NSMutableParagraphStyle()
+        if urlField.hasLockIcon {
+            paragraphStyle.firstLineHeadIndent = 30
+            paragraphStyle.headIndent = 30
+        }
+        
         urlField.placeholderAttributedString = NSAttributedString(
             string: "Search or enter website",
             attributes: [
                 .foregroundColor: defaultIconColor.withAlphaComponent(0.5),
-                .font: NSFont.systemFont(ofSize: 13)
+                .font: NSFont.systemFont(ofSize: 13),
+                .paragraphStyle: paragraphStyle
             ]
         )
         

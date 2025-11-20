@@ -443,6 +443,14 @@ class WebViewController: NSViewController {
             name: .themeColorModeChanged,
             object: nil
         )
+        
+        // Listen for OAuth popup closing to reload and detect new authentication
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(oauthPopupClosed(_:)),
+            name: .oauthPopupClosed,
+            object: nil
+        )
     }
     
     override func viewDidAppear() {
@@ -936,6 +944,21 @@ class WebViewController: NSViewController {
     }
     
     // MARK: - Dynamic Mode Switching
+    
+    @objc private func oauthPopupClosed(_ notification: Notification) {
+        // Don't reload popup windows themselves, only parent windows
+        guard !isPopupWindow else {
+            NSLog("🔄 OAuth popup closed notification received in popup window - ignoring")
+            return
+        }
+        
+        NSLog("🔄 OAuth popup closed - reloading page to detect new authentication")
+        NSLog("🔄 Current URL: \(_webView.url?.absoluteString ?? "none")")
+        
+        // Reload the current page so JavaScript can detect the new authentication cookies
+        // This allows Twitter/X to detect that the user is now logged in via Google
+        _webView.reload()
+    }
     
     @objc private func themeColorModeChanged(_ notification: Notification) {
         guard let enabled = notification.userInfo?["enabled"] as? Bool else { return }

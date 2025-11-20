@@ -621,6 +621,14 @@ extension PanelWindow: WebViewControllerDelegate {
     
     func webViewControllerDidRequestClose(_ controller: WebViewController) {
         NSLog("📍 PanelWindow: WebViewController requested close (OAuth popup callback)")
+        
+        // Notify all parent windows to reload and detect new authentication
+        // This is necessary because window.opener is broken on macOS WebKit,
+        // so the popup can't send postMessage to parent. Instead, parent reloads
+        // and detects the new authentication cookies.
+        NSLog("🔄 OAuth popup closing - notifying parent windows to check for new authentication")
+        NotificationCenter.default.post(name: .oauthPopupClosed, object: nil)
+        
         // This panel is a popup that wants to close itself after OAuth
         panelDelegate?.panelWindowDidRequestClose(self)
     }
@@ -651,5 +659,11 @@ protocol PanelWindowDelegate: AnyObject {
     func panelWindow(_ panel: PanelWindow, didUpdateURL url: String)
     func panelWindow(_ panel: PanelWindow, didUpdateFavicon image: NSImage)
     func panelWindow(_ panel: PanelWindow, createPopupPanelFor url: URL, configuration: WKWebViewConfiguration) -> WKWebView?
+}
+
+// MARK: - Notification Names
+
+extension Notification.Name {
+    static let oauthPopupClosed = Notification.Name("oauthPopupClosed")
 }
 

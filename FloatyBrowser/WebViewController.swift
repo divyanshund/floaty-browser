@@ -488,8 +488,9 @@ class WebViewController: NSViewController {
         // Allow keyboard events in WKWebView
         webView.allowsBackForwardNavigationGestures = true
         
-        // Set custom user agent to identify as desktop browser
-        webView.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15 FloatyBrowser/1.0"
+        // Set custom user agent to identify as modern Chrome on macOS for maximum compatibility
+        // This ensures sites like WhatsApp Web work properly
+        webView.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         
         // Add progress indicator (position it just below the toolbar)
         progressIndicator = NSProgressIndicator()

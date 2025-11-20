@@ -12,6 +12,7 @@ import WebKit
 // Selects all text on first click, allows normal cursor positioning while editing
 class BrowserStyleTextField: NSTextField {
     private var isCurrentlyEditing = false
+    var hasLockIcon: Bool = false  // Controls left padding for lock icon
     
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -27,6 +28,15 @@ class BrowserStyleTextField: NSTextField {
         wantsLayer = true
         layer?.borderWidth = 0 // Start with no border
         layer?.borderColor = NSColor.clear.cgColor
+    }
+    
+    // Add left padding when lock icon is visible
+    override var intrinsicContentSize: NSSize {
+        var size = super.intrinsicContentSize
+        if hasLockIcon {
+            size.width += 30  // Extra width for lock icon padding
+        }
+        return size
     }
     
     private func animateFocusGlow(isFocused: Bool) {
@@ -188,6 +198,7 @@ class WebViewController: NSViewController {
     private let forwardButton = HoverButton()
     private let reloadButton = HoverButton()
     private let urlField = BrowserStyleTextField()
+    private let lockIcon = NSImageView()  // HTTPS lock icon
     private let addressBarProgressView = AddressBarProgressView()
     private let newBubbleButton = HoverButton()
     private var progressIndicator: NSProgressIndicator!
@@ -437,6 +448,21 @@ class WebViewController: NSViewController {
         
         toolbar.addSubview(urlField)
         
+        // Lock icon - positioned inside address bar on the left
+        let lockIconSize: CGFloat = 14
+        let lockIconPadding: CGFloat = 10
+        lockIcon.frame = NSRect(
+            x: urlField.frame.origin.x + lockIconPadding,
+            y: urlField.frame.origin.y + (urlFieldHeight - lockIconSize) / 2,
+            width: lockIconSize,
+            height: lockIconSize
+        )
+        lockIcon.image = NSImage(systemSymbolName: "lock.fill", accessibilityDescription: "Secure")
+        lockIcon.contentTintColor = .secondaryLabelColor
+        lockIcon.imageScaling = .scaleProportionallyUpOrDown
+        lockIcon.isHidden = true  // Hidden by default, shown when HTTPS
+        toolbar.addSubview(lockIcon)
+        
         // Address bar progress view - positioned at the bottom of the address bar
         let progressBarHeight: CGFloat = 3
         addressBarProgressView.frame = NSRect(
@@ -543,6 +569,8 @@ class WebViewController: NSViewController {
             if let url = webView.url {
                 urlField.stringValue = url.absoluteString
                 delegate?.webViewController(self, didUpdateURL: url.absoluteString)
+                // Update lock icon when URL changes
+                updateLockIcon()
                 // Don't fetch favicon here - wait for page to load
             }
         }
@@ -908,6 +936,9 @@ extension WebViewController: WKNavigationDelegate {
     
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         progressIndicator.isHidden = true
+        
+        // Update lock icon based on URL scheme
+        updateLockIcon()
         
         // Fetch favicon after page fully loads
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
@@ -1625,7 +1656,35 @@ extension WebViewController {
             urlField.layer?.borderColor = NSColor.black.withAlphaComponent(0.15).cgColor
         }
         
+        // Update lock icon color to match icons
+        lockIcon.contentTintColor = iconColor
+        
         NSLog("✅ UI elements adapted for accessibility")
+    }
+    
+    /// Update lock icon visibility and color based on URL scheme
+    private func updateLockIcon() {
+        guard let url = webView.url else {
+            lockIcon.isHidden = true
+            urlField.hasLockIcon = false
+            return
+        }
+        
+        if url.scheme == "https" {
+            // HTTPS - show lock icon
+            lockIcon.isHidden = false
+            urlField.hasLockIcon = true
+            lockIcon.image = NSImage(systemSymbolName: "lock.fill", accessibilityDescription: "Secure")
+            NSLog("🔒 HTTPS detected - showing lock icon")
+        } else {
+            // HTTP or other - hide lock icon
+            lockIcon.isHidden = true
+            urlField.hasLockIcon = false
+            NSLog("🔓 Non-HTTPS URL - hiding lock icon")
+        }
+        
+        // Update lock icon color to match current icon color
+        lockIcon.contentTintColor = backButton.contentTintColor
     }
     
     /// Reset icon and text colors to default (for frosted glass mode)
@@ -1653,6 +1712,9 @@ extension WebViewController {
         
         // Reset URL field border
         urlField.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.3).cgColor
+        
+        // Reset lock icon color
+        lockIcon.contentTintColor = defaultIconColor
         
         NSLog("✅ Default icon colors restored")
     }

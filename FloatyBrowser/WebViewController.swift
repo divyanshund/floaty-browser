@@ -1608,21 +1608,16 @@ extension WebViewController {
         reloadButton.contentTintColor = iconColor
         newBubbleButton.contentTintColor = iconColor
         
-        // Address bar text: Use darker/lighter version of address bar's own color for harmony
-        // This creates better contrast while maintaining color consistency
-        let addressBarTextColor = deriveTextColor(from: urlField.backgroundColor ?? NSColor.controlBackgroundColor)
-        let addressBarPlaceholderColor = addressBarTextColor.withAlphaComponent(0.5)
-        
-        urlField.textColor = addressBarTextColor
+        // Address bar text: ALWAYS use dark text since address bar has light background
+        // Simple and readable - no fancy color derivation needed
+        urlField.textColor = NSColor.black.withAlphaComponent(0.85)
         urlField.placeholderAttributedString = NSAttributedString(
             string: "Search or enter website",
             attributes: [
-                .foregroundColor: addressBarPlaceholderColor,
+                .foregroundColor: NSColor.black.withAlphaComponent(0.4),
                 .font: NSFont.systemFont(ofSize: 13)
             ]
         )
-        
-        NSLog("🎨 Address bar text color derived from background")
         
         // Update URL field border based on toolbar background (for contrast with toolbar)
         if isDarkBackground {
@@ -1632,56 +1627,6 @@ extension WebViewController {
         }
         
         NSLog("✅ UI elements adapted for accessibility")
-    }
-    
-    /// Derive text color from background color
-    /// Creates darker version for light backgrounds, lighter version for dark backgrounds
-    /// Maintains color harmony while ensuring contrast
-    private func deriveTextColor(from backgroundColor: NSColor) -> NSColor {
-        guard let rgbColor = backgroundColor.usingColorSpace(.deviceRGB) else {
-            return NSColor.labelColor  // Fallback to system label color
-        }
-        
-        let red = rgbColor.redComponent
-        let green = rgbColor.greenComponent
-        let blue = rgbColor.blueComponent
-        let luminance = 0.299 * red + 0.587 * green + 0.114 * blue
-        
-        if luminance < 0.5 {
-            // Dark background → Lighten the color significantly
-            let lightenFactor: CGFloat = 0.8  // 80% lighter for better contrast
-            let textRed = red + (1.0 - red) * lightenFactor
-            let textGreen = green + (1.0 - green) * lightenFactor
-            let textBlue = blue + (1.0 - blue) * lightenFactor
-            
-            // Ensure minimum brightness (at least 0.7 for readability on dark backgrounds)
-            let minBrightness: CGFloat = 0.7
-            let textColor = NSColor(
-                red: max(textRed, minBrightness),
-                green: max(textGreen, minBrightness),
-                blue: max(textBlue, minBrightness),
-                alpha: 1.0
-            )
-            NSLog("🎨 Dark address bar (luminance: \(luminance)) → Lightened text (R:\(textRed) G:\(textGreen) B:\(textBlue))")
-            return textColor
-        } else {
-            // Light background → Darken the color significantly
-            let darkenFactor: CGFloat = 0.85  // 85% darker for strong contrast
-            let textRed = red * (1.0 - darkenFactor)
-            let textGreen = green * (1.0 - darkenFactor)
-            let textBlue = blue * (1.0 - darkenFactor)
-            
-            // Ensure maximum darkness (at most 0.3 for readability on light backgrounds)
-            let maxBrightness: CGFloat = 0.3
-            let textColor = NSColor(
-                red: min(textRed, maxBrightness),
-                green: min(textGreen, maxBrightness),
-                blue: min(textBlue, maxBrightness),
-                alpha: 1.0
-            )
-            NSLog("🎨 Light address bar (luminance: \(luminance)) → Darkened text (R:\(textRed) G:\(textGreen) B:\(textBlue))")
-            return textColor
-        }
     }
     
     /// Reset icon and text colors to default (for frosted glass mode)

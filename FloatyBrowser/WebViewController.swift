@@ -307,7 +307,77 @@ class WebViewController: NSViewController {
                 forMainFrameOnly: true
             )
             external.userContentController.addUserScript(viewportScript)
+            
+            // Add OAuth diagnostic script for popup windows
+            let diagnosticScript = WKUserScript(
+                source: """
+                (function() {
+                    console.log('🔍 [OAUTH DIAGNOSTIC] Script loaded');
+                    console.log('🔍 [OAUTH DIAGNOSTIC] window.opener exists:', !!window.opener);
+                    console.log('🔍 [OAUTH DIAGNOSTIC] window.name:', window.name);
+                    console.log('🔍 [OAUTH DIAGNOSTIC] Current URL:', window.location.href);
+                    
+                    // Monitor postMessage calls
+                    const originalPostMessage = window.postMessage;
+                    window.postMessage = function(...args) {
+                        console.log('📤 [OAUTH DIAGNOSTIC] window.postMessage called:', args);
+                        return originalPostMessage.apply(this, args);
+                    };
+                    
+                    // Monitor window.opener.postMessage if it exists
+                    if (window.opener) {
+                        console.log('✅ [OAUTH DIAGNOSTIC] window.opener is available!');
+                        try {
+                            const originalOpenerPostMessage = window.opener.postMessage;
+                            window.opener.postMessage = function(...args) {
+                                console.log('📤 [OAUTH DIAGNOSTIC] window.opener.postMessage called:', args);
+                                return originalOpenerPostMessage.apply(this, args);
+                            };
+                        } catch(e) {
+                            console.log('❌ [OAUTH DIAGNOSTIC] Cannot intercept window.opener.postMessage:', e.message);
+                        }
+                    } else {
+                        console.log('❌ [OAUTH DIAGNOSTIC] window.opener is NULL!');
+                    }
+                    
+                    // Override window.close to detect when it's called
+                    const originalClose = window.close;
+                    window.close = function() {
+                        console.log('🔔 [OAUTH DIAGNOSTIC] window.close() called!');
+                        console.log('🔔 [OAUTH DIAGNOSTIC] Current URL at close:', window.location.href);
+                        return originalClose.call(this);
+                    };
+                    
+                    // Listen for URL changes
+                    let lastUrl = window.location.href;
+                    setInterval(() => {
+                        if (window.location.href !== lastUrl) {
+                            console.log('🔄 [OAUTH DIAGNOSTIC] URL changed:', window.location.href);
+                            console.log('🔄 [OAUTH DIAGNOSTIC] window.opener still exists:', !!window.opener);
+                            lastUrl = window.location.href;
+                        }
+                    }, 500);
+                    
+                    // Log when page becomes blank
+                    setTimeout(() => {
+                        if (document.body && document.body.innerHTML.trim().length < 100) {
+                            console.log('⚪ [OAUTH DIAGNOSTIC] Page is nearly blank!');
+                            console.log('⚪ [OAUTH DIAGNOSTIC] Body content:', document.body.innerHTML);
+                        }
+                    }, 1000);
+                })();
+                """,
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: true
+            )
+            external.userContentController.addUserScript(diagnosticScript)
+            
+            // Add message handler to capture JavaScript console logs
+            // (Note: This is just for documentation - console.log already appears in Xcode console)
+            
             NSLog("✅ WebViewController: Using external WebKit configuration (popup)")
+            NSLog("✅ Added OAuth diagnostic logging script")
+            NSLog("✅ JavaScript in popup will log window.opener status, postMessage calls, and window.close()")
             return external
         }
         
@@ -1038,7 +1108,11 @@ extension WebViewController: WKNavigationDelegate {
         progressIndicator.doubleValue = 0
         
         if let url = webView.url {
-            NSLog("🔄 Navigation started: \(url.absoluteString)")
+            if isPopupWindow {
+                NSLog("🔄 [POPUP] Navigation started: \(url.absoluteString)")
+            } else {
+                NSLog("🔄 Navigation started: \(url.absoluteString)")
+            }
         }
     }
     
@@ -1060,7 +1134,38 @@ extension WebViewController: WKNavigationDelegate {
         
         // Check if this looks like an OAuth callback that should close
         if let url = webView.url {
+            NSLog("✅ Page loaded: \(url.absoluteString)")
+            
+            // For popup windows, check window.opener status
+            if isPopupWindow {
+                checkWindowOpenerStatus(webView: webView)
+            }
+            
             checkForOAuthCallbackAndClose(url: url, webView: webView)
+        }
+    }
+    
+    /// Check if window.opener relationship is working in popup
+    private func checkWindowOpenerStatus(webView: WKWebView) {
+        webView.evaluateJavaScript("!!window.opener") { result, error in
+            if let hasOpener = result as? Bool {
+                if hasOpener {
+                    NSLog("✅ [DIAGNOSTIC] window.opener EXISTS in popup!")
+                } else {
+                    NSLog("❌ [DIAGNOSTIC] window.opener is NULL in popup!")
+                    NSLog("❌ [DIAGNOSTIC] This means parent-child relationship is broken!")
+                    NSLog("❌ [DIAGNOSTIC] Parent cannot close this popup via JavaScript")
+                }
+            } else if let error = error {
+                NSLog("⚠️ [DIAGNOSTIC] Failed to check window.opener: \(error.localizedDescription)")
+            }
+        }
+        
+        // Also check if window.close is available
+        webView.evaluateJavaScript("typeof window.close") { result, error in
+            if let type = result as? String {
+                NSLog("🔍 [DIAGNOSTIC] window.close type: \(type)")
+            }
         }
     }
     
@@ -1095,12 +1200,25 @@ extension WebViewController: WKUIDelegate {
         NSLog("🪟 POPUP REQUEST: Creating new panel for \(url.absoluteString)")
         NSLog("   ↳ Reason: \(navigationAction.navigationType.rawValue)")
         NSLog("   ↳ Target frame: \(navigationAction.targetFrame == nil ? "nil (new window)" : "exists")")
-        NSLog("   ↳ WebKit provided configuration with shared session")
+        NSLog("   ↳ WebKit provided configuration has processPool: \(configuration.processPool)")
+        NSLog("   ↳ WebKit provided configuration has dataStore: \(configuration.websiteDataStore)")
+        
+        // Check if parent window has stored the popup reference (should happen automatically)
+        // We'll check this after a brief delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak webView] in
+            webView?.evaluateJavaScript("window.___popupWindowCount = (window.___popupWindowCount || 0) + 1; window.___popupWindowCount") { result, error in
+                if let count = result as? Int {
+                    NSLog("🔍 [PARENT DIAGNOSTIC] Parent has opened \(count) popup(s)")
+                }
+            }
+        }
         
         // Ask delegate to create a popup panel and return its WKWebView
         // This ensures proper WebKit integration for OAuth and window.opener
         if let popupWebView = delegate?.webViewController(self, createPopupPanelFor: url, configuration: configuration) {
             NSLog("✅ Popup panel created, returning WKWebView to WebKit")
+            NSLog("✅ Popup WKWebView: \(popupWebView)")
+            NSLog("✅ This WKWebView should establish window.opener relationship")
             return popupWebView
         } else {
             NSLog("⚠️ Failed to create popup panel")

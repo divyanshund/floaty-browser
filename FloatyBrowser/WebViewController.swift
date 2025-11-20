@@ -408,7 +408,8 @@ class WebViewController: NSViewController {
         urlField.alignment = .left
         
         // Modern URL field styling - minimal, smooth, beautiful
-        urlField.isBezeled = false  // Remove default bezel for custom look
+        urlField.isBezeled = true
+        urlField.bezelStyle = .roundedBezel  // Use rounded bezel for proper text centering
         urlField.focusRingType = .none
         urlField.wantsLayer = true
         urlField.layer?.cornerRadius = 17  // Super smooth rounded corners

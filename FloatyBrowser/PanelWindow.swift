@@ -56,7 +56,7 @@ class PanelWindow: NSPanel {
     let panelId: UUID
     private(set) var webViewController: WebViewController!
     private var closeButton: NSButton!
-    private let minimumSize = NSSize(width: 300, height: 400)
+    private let minimumSize = NSSize(width: 380, height: 400)  // Increased to fit all toolbar elements
     private let defaultSize = NSSize(width: 420, height: 600)
     
     // Store the user's resized frame so we can restore it when showing again

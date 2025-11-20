@@ -276,13 +276,15 @@ class WebViewController: NSViewController {
         let buttonSize: CGFloat = 28
         let rightMargin: CGFloat = 12
         let addressBarRightMargin: CGFloat = 16  // Match spacing from setupToolbar
+        let minAddressBarWidth: CGFloat = 200  // Match setupToolbar
         
         // Calculate where plus button should be (it auto-positions via autoresizingMask)
         let plusButtonX = view.bounds.width - buttonSize - rightMargin
         
         // Update URL field width to fill space between its current X and the plus button
         let urlFieldX = urlField.frame.origin.x  // Keep current left position
-        let newUrlFieldWidth = plusButtonX - urlFieldX - addressBarRightMargin
+        let availableWidth = plusButtonX - urlFieldX - addressBarRightMargin
+        let newUrlFieldWidth = max(minAddressBarWidth, availableWidth)  // Ensure minimum width
         
         // Only update if width actually changed (avoid unnecessary updates)
         if abs(urlField.frame.width - newUrlFieldWidth) > 0.1 {
@@ -290,6 +292,8 @@ class WebViewController: NSViewController {
             
             // Also update progress bar to match
             addressBarProgressView.frame.size.width = newUrlFieldWidth
+            
+            NSLog("🔄 viewDidLayout - Address bar width updated to: \(newUrlFieldWidth) (available: \(availableWidth))")
         }
     }
     
@@ -399,14 +403,18 @@ class WebViewController: NSViewController {
         
         // URL field - positioned BETWEEN reload button and plus button  
         let addressBarRightMargin: CGFloat = 16
-        let urlFieldWidth = plusButtonX - xOffset - addressBarRightMargin
+        let minAddressBarWidth: CGFloat = 200  // Minimum width for address bar
+        
+        // Calculate available width
+        let availableWidth = plusButtonX - xOffset - addressBarRightMargin
+        let urlFieldWidth = max(minAddressBarWidth, availableWidth)  // Ensure minimum width
         let urlFieldHeight: CGFloat = 34  // Slightly taller for better presence
         let urlFieldY = (toolbarHeight - urlFieldHeight) / 2
         
         urlField.frame = NSRect(x: xOffset, y: urlFieldY, width: urlFieldWidth, height: urlFieldHeight)
         // No autoresizing - we'll handle layout manually to keep gap with plus button
         
-        NSLog("🎯 Address bar layout - X: \(xOffset), Width: \(urlFieldWidth), ReloadButton right edge should be at: \(xOffset - addressBarLeftMargin)")
+        NSLog("🎯 Address bar layout - X: \(xOffset), Available width: \(availableWidth), Final width: \(urlFieldWidth), Reload button ends at: \(xOffset - addressBarLeftMargin)")
         
         urlField.placeholderString = "Search or enter website"
         urlField.delegate = self
@@ -420,6 +428,7 @@ class WebViewController: NSViewController {
         urlField.wantsLayer = true
         urlField.layer?.cornerRadius = 16  // Very rounded
         urlField.layer?.masksToBounds = true
+        urlField.clipsToBounds = true  // Ensure nothing draws outside bounds
         urlField.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.3)
         
         // Add subtle border

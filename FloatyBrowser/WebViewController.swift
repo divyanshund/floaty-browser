@@ -1608,13 +1608,12 @@ extension WebViewController {
         reloadButton.contentTintColor = iconColor
         newBubbleButton.contentTintColor = iconColor
         
-        // Address bar text: ALWAYS use dark text since address bar has light background
-        // Simple and readable - no fancy color derivation needed
-        urlField.textColor = NSColor.black.withAlphaComponent(0.85)
+        // Address bar text: Use SAME color as icons (icons are always correct!)
+        urlField.textColor = iconColor
         urlField.placeholderAttributedString = NSAttributedString(
             string: "Search or enter website",
             attributes: [
-                .foregroundColor: NSColor.black.withAlphaComponent(0.4),
+                .foregroundColor: iconColor.withAlphaComponent(0.5),
                 .font: NSFont.systemFont(ofSize: 13)
             ]
         )
@@ -1635,8 +1634,6 @@ extension WebViewController {
         
         // Default system colors (gray icons)
         let defaultIconColor = NSColor.secondaryLabelColor
-        let defaultTextColor = NSColor.labelColor
-        let defaultPlaceholderColor = NSColor.placeholderTextColor
         
         // Reset navigation buttons
         backButton.contentTintColor = defaultIconColor
@@ -1644,12 +1641,12 @@ extension WebViewController {
         reloadButton.contentTintColor = defaultIconColor
         newBubbleButton.contentTintColor = defaultIconColor
         
-        // Reset URL field text
-        urlField.textColor = defaultTextColor
+        // Reset URL field text - use SAME color as icons
+        urlField.textColor = defaultIconColor
         urlField.placeholderAttributedString = NSAttributedString(
             string: "Search or enter website",
             attributes: [
-                .foregroundColor: defaultPlaceholderColor,
+                .foregroundColor: defaultIconColor.withAlphaComponent(0.5),
                 .font: NSFont.systemFont(ofSize: 13)
             ]
         )

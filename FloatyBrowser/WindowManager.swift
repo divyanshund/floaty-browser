@@ -377,24 +377,25 @@ extension WindowManager: PanelWindowDelegate {
     }
     
     func panelWindowDidRequestClose(_ panel: PanelWindow) {
-        // Red close button = completely delete bubble and panel
-        NSLog("🔴 FloatyBrowser: Closing panel and bubble completely - ID: %@", panel.panelId.uuidString)
+        NSLog("🔴 FloatyBrowser: Panel requested close - ID: %@", panel.panelId.uuidString)
         NSLog("🔴 Before close - Bubbles count: %d, Panels count: %d", bubbles.count, panels.count)
         
-        let bubbleId = panel.panelId
+        let panelId = panel.panelId
         
         // Remove panel from dictionary and close it
-        panels.removeValue(forKey: bubbleId)
+        panels.removeValue(forKey: panelId)
         panel.close()
         NSLog("🔴 Panel closed and removed from dictionary")
         
-        // Find and completely close the associated bubble
-        if let bubble = bubbles[bubbleId] {
-            NSLog("🔴 Found bubble, calling closeBubble()")
+        // Check if this panel has an associated bubble
+        if let bubble = bubbles[panelId] {
+            // This is a regular panel with a bubble - delete both
+            NSLog("🔴 Found associated bubble, calling closeBubble()")
             closeBubble(bubble)  // This removes from dictionary and persistence
             NSLog("🔴 closeBubble() completed")
         } else {
-            NSLog("❌ ERROR: No bubble found with ID: %@", bubbleId.uuidString)
+            // This is a standalone popup panel (e.g., OAuth) with no bubble
+            NSLog("🪟 No associated bubble - this was a popup panel (OAuth, etc.)")
         }
         
         NSLog("✅ After close - Bubbles count: %d, Panels count: %d", bubbles.count, panels.count)

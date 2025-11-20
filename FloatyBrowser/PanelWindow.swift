@@ -618,6 +618,12 @@ extension PanelWindow: WebViewControllerDelegate {
         // Forward popup creation request to WindowManager
         return panelDelegate?.panelWindow(self, createPopupPanelFor: url, configuration: configuration)
     }
+    
+    func webViewControllerDidRequestClose(_ controller: WebViewController) {
+        NSLog("📍 PanelWindow: WebViewController requested close (OAuth popup callback)")
+        // This panel is a popup that wants to close itself after OAuth
+        panelDelegate?.panelWindowDidRequestClose(self)
+    }
 }
 
 // MARK: - NSWindowDelegate

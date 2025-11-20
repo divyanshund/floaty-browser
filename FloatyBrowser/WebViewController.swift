@@ -1111,6 +1111,14 @@ extension WebViewController: WKUIDelegate {
         let response = alert.runModal()
         completionHandler(response == .alertFirstButtonReturn)
     }
+    
+    func webViewDidClose(_ webView: WKWebView) {
+        NSLog("🔔 webViewDidClose called - JavaScript executed window.close()")
+        NSLog("   ↳ This is typically after OAuth callback completes")
+        
+        // Notify delegate that this popup should be closed
+        delegate?.webViewControllerDidRequestClose(self)
+    }
 }
 
 // MARK: - Theme Color Management
@@ -1856,5 +1864,6 @@ protocol WebViewControllerDelegate: AnyObject {
     func webViewController(_ controller: WebViewController, didUpdateURL url: String)
     func webViewController(_ controller: WebViewController, didUpdateFavicon image: NSImage)
     func webViewController(_ controller: WebViewController, createPopupPanelFor url: URL, configuration: WKWebViewConfiguration) -> WKWebView?
+    func webViewControllerDidRequestClose(_ controller: WebViewController)
 }
 

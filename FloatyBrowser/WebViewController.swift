@@ -397,28 +397,29 @@ class WebViewController: NSViewController {
         // URL field - positioned BETWEEN reload button and plus button
         let spacingBeforePlus: CGFloat = 12  // Match spacing with reload button
         let urlFieldWidth = plusButtonX - xOffset - spacingBeforePlus
-        let urlFieldHeight: CGFloat = 32  // Taller for better vertical centering
+        let urlFieldHeight: CGFloat = 34  // Slightly taller for better presence
         let urlFieldY = (toolbarHeight - urlFieldHeight) / 2
         
         urlField.frame = NSRect(x: xOffset, y: urlFieldY, width: urlFieldWidth, height: urlFieldHeight)
         // No autoresizing - we'll handle layout manually to keep gap with plus button
         urlField.placeholderString = "Search or enter website"
         urlField.delegate = self
-        urlField.font = NSFont.systemFont(ofSize: 13)
+        urlField.font = NSFont.systemFont(ofSize: 13, weight: .regular)
         urlField.alignment = .left
         
-        // Modern URL field styling - very rounded, clean look
-        urlField.isBezeled = true
-        urlField.bezelStyle = .roundedBezel  // Use native rounded bezel for proper centering
+        // Modern URL field styling - minimal, smooth, beautiful
+        urlField.isBezeled = false  // Remove default bezel for custom look
         urlField.focusRingType = .none
         urlField.wantsLayer = true
-        urlField.layer?.cornerRadius = 16  // Very rounded
+        urlField.layer?.cornerRadius = 17  // Super smooth rounded corners
         urlField.layer?.masksToBounds = true
-        urlField.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.3)
         
-        // Add subtle border
-        urlField.layer?.borderWidth = 0.5
-        urlField.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.3).cgColor
+        // Background: semi-transparent for subtle blend with toolbar
+        // Will be updated dynamically based on toolbar color
+        urlField.backgroundColor = NSColor.white.withAlphaComponent(0.12)
+        
+        // No border for minimal look
+        urlField.layer?.borderWidth = 0
         
         toolbar.addSubview(urlField)
         
@@ -1527,10 +1528,58 @@ extension WebViewController {
             panelWindow.applyThemeColorToControlBar(color)
         }
         
+        // Apply lighter variant to address bar for subtle blend
+        updateAddressBarStyle(basedOn: color)
+        
         // Adapt icon and text colors for accessibility
         adaptUIElementColors(forBackgroundColor: color)
         
         NSLog("✅ Theme color applied successfully")
+    }
+    
+    /// Update address bar style to blend with toolbar color
+    /// Creates a lighter/darker variant that blends beautifully
+    private func updateAddressBarStyle(basedOn toolbarColor: NSColor) {
+        guard let rgbColor = toolbarColor.usingColorSpace(.deviceRGB) else {
+            NSLog("⚠️ Could not convert toolbar color to RGB")
+            return
+        }
+        
+        // Calculate luminance to determine if toolbar is dark or light
+        let red = rgbColor.redComponent
+        let green = rgbColor.greenComponent
+        let blue = rgbColor.blueComponent
+        let luminance = 0.299 * red + 0.587 * green + 0.114 * blue
+        
+        let addressBarColor: NSColor
+        
+        if luminance < 0.5 {
+            // Dark toolbar → Make address bar lighter (brighter variant)
+            // Lighten by mixing with white
+            let lightenAmount: CGFloat = 0.15  // 15% lighter
+            addressBarColor = NSColor(
+                red: red + (1.0 - red) * lightenAmount,
+                green: green + (1.0 - green) * lightenAmount,
+                blue: blue + (1.0 - blue) * lightenAmount,
+                alpha: 0.3  // Semi-transparent for subtle blend
+            )
+            NSLog("🎨 Dark toolbar → Creating lighter address bar")
+        } else {
+            // Light toolbar → Make address bar slightly darker (subtle contrast)
+            let darkenAmount: CGFloat = 0.08  // 8% darker
+            addressBarColor = NSColor(
+                red: red * (1.0 - darkenAmount),
+                green: green * (1.0 - darkenAmount),
+                blue: blue * (1.0 - darkenAmount),
+                alpha: 0.25  // Semi-transparent for subtle blend
+            )
+            NSLog("🎨 Light toolbar → Creating darker address bar")
+        }
+        
+        // Apply to address bar
+        urlField.backgroundColor = addressBarColor
+        
+        NSLog("✅ Address bar style updated to blend with toolbar")
     }
     
     /// Reset to default gray theme
@@ -1548,6 +1597,9 @@ extension WebViewController {
         if let panelWindow = view.window as? PanelWindow {
             panelWindow.applyThemeColorToControlBar(defaultColor)
         }
+        
+        // Apply lighter variant to address bar
+        updateAddressBarStyle(basedOn: defaultColor)
         
         // Adapt icon and text colors for accessibility
         adaptUIElementColors(forBackgroundColor: defaultColor)
@@ -1592,23 +1644,30 @@ extension WebViewController {
         reloadButton.contentTintColor = iconColor
         newBubbleButton.contentTintColor = iconColor
         
-        // Address bar text: ALWAYS use dark text since address bar has light background
-        // The address bar maintains a light background (controlBackgroundColor) regardless of toolbar color
-        urlField.textColor = NSColor.labelColor  // Dark text (adapts to system theme)
+        // Address bar text: Adapt based on toolbar background
+        // For dark toolbar, address bar is lighter → use white text
+        // For light toolbar, address bar is slightly darker → use dark text
+        let textColor: NSColor
+        let placeholderColor: NSColor
+        
+        if isDarkBackground {
+            // Dark toolbar → Lighter address bar → White text
+            textColor = NSColor.white
+            placeholderColor = NSColor.white.withAlphaComponent(0.6)
+        } else {
+            // Light toolbar → Slightly darker address bar → Dark text
+            textColor = NSColor.black
+            placeholderColor = NSColor.black.withAlphaComponent(0.5)
+        }
+        
+        urlField.textColor = textColor
         urlField.placeholderAttributedString = NSAttributedString(
             string: "Search or enter website",
             attributes: [
-                .foregroundColor: NSColor.placeholderTextColor,
+                .foregroundColor: placeholderColor,
                 .font: NSFont.systemFont(ofSize: 13)
             ]
         )
-        
-        // Update URL field border based on toolbar background (for contrast with toolbar)
-        if isDarkBackground {
-            urlField.layer?.borderColor = NSColor.white.withAlphaComponent(0.2).cgColor
-        } else {
-            urlField.layer?.borderColor = NSColor.black.withAlphaComponent(0.15).cgColor
-        }
         
         NSLog("✅ UI elements adapted for accessibility")
     }
@@ -1638,8 +1697,8 @@ extension WebViewController {
             ]
         )
         
-        // Reset URL field border
-        urlField.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.3).cgColor
+        // Reset address bar background to default subtle style
+        urlField.backgroundColor = NSColor.white.withAlphaComponent(0.12)
         
         NSLog("✅ Default icon colors restored")
     }

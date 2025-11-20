@@ -6,6 +6,7 @@
 //
 
 import Cocoa
+import WebKit
 
 // Custom button for window controls with hover effect
 class WindowControlButton: NSButton {
@@ -74,7 +75,7 @@ class PanelWindow: NSPanel {
     
     weak var panelDelegate: PanelWindowDelegate?
     
-    init(id: UUID, url: String, nearBubble bubbleFrame: NSRect) {
+    init(id: UUID, url: String, nearBubble bubbleFrame: NSRect, configuration: WKWebViewConfiguration? = nil) {
         self.panelId = id
         
         // Decide mode at creation - same as WebViewController
@@ -92,9 +93,12 @@ class PanelWindow: NSPanel {
         )
         
         NSLog("🎨 PanelWindow initialized with theme colors: \(useThemeColors)")
+        if configuration != nil {
+            NSLog("   ↳ Using external configuration (popup window)")
+        }
         
         setupWindow()
-        setupWebView(url: url)
+        setupWebView(url: url, configuration: configuration)
         setupCloseButton()
         setupCustomControls()
     }
@@ -161,8 +165,8 @@ class PanelWindow: NSPanel {
         makeKeyAndOrderFront(nil)
     }
     
-    private func setupWebView(url: String) {
-        webViewController = WebViewController()
+    private func setupWebView(url: String, configuration: WKWebViewConfiguration? = nil) {
+        webViewController = WebViewController(configuration: configuration)
         webViewController.delegate = self
         
         // Set up the content view
@@ -609,6 +613,11 @@ extension PanelWindow: WebViewControllerDelegate {
     func webViewController(_ controller: WebViewController, didUpdateFavicon image: NSImage) {
         panelDelegate?.panelWindow(self, didUpdateFavicon: image)
     }
+    
+    func webViewController(_ controller: WebViewController, createPopupPanelFor url: URL, configuration: WKWebViewConfiguration) -> WKWebView? {
+        // Forward popup creation request to WindowManager
+        return panelDelegate?.panelWindow(self, createPopupPanelFor: url, configuration: configuration)
+    }
 }
 
 // MARK: - NSWindowDelegate
@@ -635,5 +644,6 @@ protocol PanelWindowDelegate: AnyObject {
     func panelWindow(_ panel: PanelWindow, didRequestNewBubble url: String)
     func panelWindow(_ panel: PanelWindow, didUpdateURL url: String)
     func panelWindow(_ panel: PanelWindow, didUpdateFavicon image: NSImage)
+    func panelWindow(_ panel: PanelWindow, createPopupPanelFor url: URL, configuration: WKWebViewConfiguration) -> WKWebView?
 }
 

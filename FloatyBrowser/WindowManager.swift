@@ -7,6 +7,7 @@
 
 import Cocoa
 import Carbon
+import WebKit
 
 class WindowManager: NSObject {
     static let shared = WindowManager()
@@ -97,6 +98,38 @@ class WindowManager: NSObject {
         panel.animateIn()  // Only animate for new panels
         
         print("✅ Expanded bubble to new panel")
+    }
+    
+    func createPanelForPopup(url: String, configuration: WKWebViewConfiguration) -> PanelWindow {
+        let id = UUID()
+        
+        // Calculate center position for popup panel
+        guard let screen = NSScreen.main else {
+            fatalError("No main screen available")
+        }
+        
+        let panelSize = NSSize(width: 420, height: 600)
+        let screenFrame = screen.visibleFrame
+        let centerX = screenFrame.midX - (panelSize.width / 2)
+        let centerY = screenFrame.midY - (panelSize.height / 2)
+        let centerPosition = NSRect(origin: NSPoint(x: centerX, y: centerY), size: panelSize)
+        
+        NSLog("🪟 Creating popup panel at center of screen")
+        
+        // Create panel with external configuration (for OAuth popup integration)
+        let panel = PanelWindow(id: id, url: url, nearBubble: centerPosition, configuration: configuration)
+        panel.panelDelegate = self
+        
+        // Store panel (but no bubble - popups are standalone)
+        panels[id] = panel
+        
+        // Show panel immediately
+        panel.makeKeyAndOrderFront(nil)
+        panel.animateIn()
+        
+        NSLog("✅ Created popup panel (no bubble) - ID: \(id.uuidString)")
+        
+        return panel
     }
     
     func collapsePanel(_ panel: PanelWindow) {
@@ -386,6 +419,16 @@ extension WindowManager: PanelWindowDelegate {
             NSLog("🎨 FloatyBrowser: Updating bubble favicon")
             bubble.updateFavicon(image)
         }
+    }
+    
+    func panelWindow(_ panel: PanelWindow, createPopupPanelFor url: URL, configuration: WKWebViewConfiguration) -> WKWebView? {
+        NSLog("🪟 WindowManager: Creating popup panel for \(url.absoluteString)")
+        
+        // Create a new panel for the popup (using current mouse position or center of screen)
+        let popupPanel = createPanelForPopup(url: url.absoluteString, configuration: configuration)
+        
+        // Return the panel's WebView so WebKit can use it for the popup
+        return popupPanel.webViewController.webView
     }
 }
 

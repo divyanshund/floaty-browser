@@ -257,7 +257,9 @@ class HoverButton: NSButton {
 }
 
 class WebViewController: NSViewController {
-    private var webView: WKWebView!
+    private var _webView: WKWebView!
+    var webView: WKWebView! { return _webView }
+    
     private var trafficLightArea: NSView!  // Can be NSVisualEffectView OR NSView
     private var toolbar: NSView!  // Can be NSVisualEffectView OR NSView
     private let backButton = HoverButton()
@@ -278,8 +280,29 @@ class WebViewController: NSViewController {
     private var currentThemeColor: NSColor?
     private var currentFavicon: NSImage?
     
+    // External configuration (used for popups)
+    private var externalConfiguration: WKWebViewConfiguration?
+    
     // Use shared configuration for session sharing across all bubbles
     private lazy var webConfiguration: WKWebViewConfiguration = {
+        // If external config provided (e.g., for popups), use it
+        if let external = externalConfiguration {
+            // Add viewport script to external config
+            let viewportScript = WKUserScript(
+                source: """
+                var meta = document.createElement('meta');
+                meta.name = 'viewport';
+                meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes';
+                document.getElementsByTagName('head')[0].appendChild(meta);
+                """,
+                injectionTime: .atDocumentEnd,
+                forMainFrameOnly: true
+            )
+            external.userContentController.addUserScript(viewportScript)
+            NSLog("✅ WebViewController: Using external WebKit configuration (popup)")
+            return external
+        }
+        
         // Get shared configuration with process pool and data store
         let config = SharedWebConfiguration.shared.createConfiguration()
         
@@ -302,19 +325,24 @@ class WebViewController: NSViewController {
     }()
     
     var currentURL: String {
-        return webView.url?.absoluteString ?? ""
+        return _webView.url?.absoluteString ?? ""
     }
     
-    init() {
+    init(configuration: WKWebViewConfiguration? = nil) {
         // Decide mode at initialization - NEVER changes after this
         self.useThemeColors = AppearancePreferencesViewController.isThemeColorsEnabled()
+        self.externalConfiguration = configuration
         super.init(nibName: nil, bundle: nil)
         NSLog("🎨 WebViewController initialized with theme colors: \(useThemeColors)")
+        if configuration != nil {
+            NSLog("   ↳ Using external configuration (popup window)")
+        }
     }
     
     required init?(coder: NSCoder) {
         // Decide mode at initialization
         self.useThemeColors = AppearancePreferencesViewController.isThemeColorsEnabled()
+        self.externalConfiguration = nil
         super.init(coder: coder)
         NSLog("🎨 WebViewController initialized with theme colors: \(useThemeColors)")
     }
@@ -342,7 +370,7 @@ class WebViewController: NSViewController {
     override func viewDidAppear() {
         super.viewDidAppear()
         // Ensure web view can receive keyboard events
-        view.window?.makeFirstResponder(webView)
+        view.window?.makeFirstResponder(_webView)
     }
     
     override func viewDidLayout() {
@@ -571,18 +599,18 @@ class WebViewController: NSViewController {
         // Total top space = traffic lights (30px) + toolbar (44px) = 74px
         let totalTopSpace: CGFloat = 74
         
-        webView = WKWebView(frame: .zero, configuration: webConfiguration)
-        webView.frame = NSRect(x: 0, y: 0, width: view.bounds.width, height: view.bounds.height - totalTopSpace)
-        webView.autoresizingMask = [.width, .height]
-        webView.navigationDelegate = self
-        webView.uiDelegate = self
+        _webView = WKWebView(frame: .zero, configuration: webConfiguration)
+        _webView.frame = NSRect(x: 0, y: 0, width: view.bounds.width, height: view.bounds.height - totalTopSpace)
+        _webView.autoresizingMask = [.width, .height]
+        _webView.navigationDelegate = self
+        _webView.uiDelegate = self
         
         // Allow keyboard events in WKWebView
-        webView.allowsBackForwardNavigationGestures = true
+        _webView.allowsBackForwardNavigationGestures = true
         
         // Set custom user agent to identify as modern Chrome on macOS for maximum compatibility
         // This ensures sites like WhatsApp Web work properly
-        webView.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        _webView.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         
         // Add progress indicator (position it just below the toolbar)
         progressIndicator = NSProgressIndicator()
@@ -592,19 +620,19 @@ class WebViewController: NSViewController {
         progressIndicator.autoresizingMask = [.width, .minYMargin]
         progressIndicator.isHidden = true
         
-        view.addSubview(webView)
+        view.addSubview(_webView)
         view.addSubview(progressIndicator)
         
         // Observe loading progress
-        webView.addObserver(self, forKeyPath: #keyPath(WKWebView.estimatedProgress), options: .new, context: nil)
-        webView.addObserver(self, forKeyPath: #keyPath(WKWebView.canGoBack), options: .new, context: nil)
-        webView.addObserver(self, forKeyPath: #keyPath(WKWebView.canGoForward), options: .new, context: nil)
-        webView.addObserver(self, forKeyPath: #keyPath(WKWebView.url), options: .new, context: nil)
+        _webView.addObserver(self, forKeyPath: #keyPath(WKWebView.estimatedProgress), options: .new, context: nil)
+        _webView.addObserver(self, forKeyPath: #keyPath(WKWebView.canGoBack), options: .new, context: nil)
+        _webView.addObserver(self, forKeyPath: #keyPath(WKWebView.canGoForward), options: .new, context: nil)
+        _webView.addObserver(self, forKeyPath: #keyPath(WKWebView.url), options: .new, context: nil)
     }
     
     override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
         if keyPath == #keyPath(WKWebView.estimatedProgress) {
-            let progress = webView.estimatedProgress
+            let progress = _webView.estimatedProgress
             
             // Update old progress indicator
             progressIndicator.doubleValue = progress
@@ -628,11 +656,11 @@ class WebViewController: NSViewController {
                 }
             }
         } else if keyPath == #keyPath(WKWebView.canGoBack) {
-            backButton.isEnabled = webView.canGoBack
+            backButton.isEnabled = _webView.canGoBack
         } else if keyPath == #keyPath(WKWebView.canGoForward) {
-            forwardButton.isEnabled = webView.canGoForward
+            forwardButton.isEnabled = _webView.canGoForward
         } else if keyPath == #keyPath(WKWebView.url) {
-            if let url = webView.url {
+            if let url = _webView.url {
                 urlField.stringValue = url.absoluteString
                 // Apply indentation after setting URL (preserves lock icon spacing)
                 urlField.updateTextIndentation()
@@ -661,7 +689,7 @@ class WebViewController: NSViewController {
             
             guard let url = URL(string: urlToLoad) else { return }
             NSLog("🌐 Loading URL: \(urlToLoad)")
-            webView.load(URLRequest(url: url))
+            _webView.load(URLRequest(url: url))
         } else {
             // It's a search query - use search engine
             performSearch(query: trimmedInput)
@@ -718,34 +746,34 @@ class WebViewController: NSViewController {
         
         guard let url = URL(string: searchURLString) else { return }
         NSLog("🔍 Searching for: \(query) using \(searchEngine.rawValue)")
-        webView.load(URLRequest(url: url))
+        _webView.load(URLRequest(url: url))
     }
     
     @objc private func goBack() {
-        webView.goBack()
+        _webView.goBack()
     }
     
     @objc private func goForward() {
-        webView.goForward()
+        _webView.goForward()
     }
     
     @objc private func reload() {
-        webView.reload()
+        _webView.reload()
     }
     
     @objc private func createNewBubble() {
-        if let url = webView.url {
+        if let url = _webView.url {
             delegate?.webViewController(self, didRequestNewBubble: url.absoluteString)
         }
     }
     
     func suspendWebView() {
         // Suspend rendering to save resources when collapsed
-        webView.evaluateJavaScript("document.hidden = true;", completionHandler: nil)
+        _webView.evaluateJavaScript("document.hidden = true;", completionHandler: nil)
     }
     
     func resumeWebView() {
-        webView.evaluateJavaScript("document.hidden = false;", completionHandler: nil)
+        _webView.evaluateJavaScript("document.hidden = false;", completionHandler: nil)
     }
     
     private func fetchFavicon() {
@@ -767,7 +795,7 @@ class WebViewController: NSViewController {
         })();
         """
         
-        webView.evaluateJavaScript(script) { [weak self] result, error in
+        _webView.evaluateJavaScript(script) { [weak self] result, error in
             if let error = error {
                 NSLog("❌ FloatyBrowser: Favicon JS error: \(error.localizedDescription)")
                 return
@@ -822,10 +850,10 @@ class WebViewController: NSViewController {
     }
     
     deinit {
-        webView.removeObserver(self, forKeyPath: #keyPath(WKWebView.estimatedProgress))
-        webView.removeObserver(self, forKeyPath: #keyPath(WKWebView.canGoBack))
-        webView.removeObserver(self, forKeyPath: #keyPath(WKWebView.canGoForward))
-        webView.removeObserver(self, forKeyPath: #keyPath(WKWebView.url))
+        _webView.removeObserver(self, forKeyPath: #keyPath(WKWebView.estimatedProgress))
+        _webView.removeObserver(self, forKeyPath: #keyPath(WKWebView.canGoBack))
+        _webView.removeObserver(self, forKeyPath: #keyPath(WKWebView.canGoForward))
+        _webView.removeObserver(self, forKeyPath: #keyPath(WKWebView.url))
         NotificationCenter.default.removeObserver(self)
     }
     
@@ -967,7 +995,7 @@ class WebViewController: NSViewController {
             print("❌ Could not find snake_game.html")
             return
         }
-        webView.loadFileURL(gameURL, allowingReadAccessTo: gameURL.deletingLastPathComponent())
+        _webView.loadFileURL(gameURL, allowingReadAccessTo: gameURL.deletingLastPathComponent())
         print("🎮 FloatyBrowser: Loading Snake Game - no internet detected")
     }
 }
@@ -1040,23 +1068,27 @@ extension WebViewController: WKNavigationDelegate {
 
 extension WebViewController: WKUIDelegate {
     /// Handle popup window requests (window.open(), target="_blank", etc.)
-    /// This is the SINGLE point where new bubbles are created for popups
+    /// Creates a new panel window and returns its WKWebView for proper WebKit integration
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
         guard let url = navigationAction.request.url else {
             NSLog("⚠️ Popup request with no URL, ignoring")
             return nil
         }
         
-        NSLog("🪟 POPUP REQUEST: Creating new bubble for \(url.absoluteString)")
+        NSLog("🪟 POPUP REQUEST: Creating new panel for \(url.absoluteString)")
         NSLog("   ↳ Reason: \(navigationAction.navigationType.rawValue)")
         NSLog("   ↳ Target frame: \(navigationAction.targetFrame == nil ? "nil (new window)" : "exists")")
+        NSLog("   ↳ WebKit provided configuration with shared session")
         
-        // Request WindowManager to create a new bubble with shared session
-        delegate?.webViewController(self, didRequestNewBubble: url.absoluteString)
-        
-        // Return nil to indicate we're not providing a WKWebView
-        // (we're creating a new bubble window instead)
-        return nil
+        // Ask delegate to create a popup panel and return its WKWebView
+        // This ensures proper WebKit integration for OAuth and window.opener
+        if let popupWebView = delegate?.webViewController(self, createPopupPanelFor: url, configuration: configuration) {
+            NSLog("✅ Popup panel created, returning WKWebView to WebKit")
+            return popupWebView
+        } else {
+            NSLog("⚠️ Failed to create popup panel")
+            return nil
+        }
     }
     
     func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
@@ -1091,7 +1123,7 @@ extension WebViewController {
             return
         }
         
-        guard let url = webView.url, let host = url.host else {
+        guard let url = _webView.url, let host = url.host else {
             NSLog("⚠️ No URL for theme color extraction")
             applyDefaultThemeColor()
             return
@@ -1254,7 +1286,7 @@ extension WebViewController {
         })();
         """
         
-        webView.evaluateJavaScript(script) { [weak self] result, error in
+        _webView.evaluateJavaScript(script) { [weak self] result, error in
             if let error = error {
                 NSLog("❌ Error extracting header color: \(error.localizedDescription)")
                 completion(nil)
@@ -1299,7 +1331,7 @@ extension WebViewController {
         })();
         """
         
-        webView.evaluateJavaScript(script) { [weak self] result, error in
+        _webView.evaluateJavaScript(script) { [weak self] result, error in
             if let error = error {
                 NSLog("❌ Error extracting meta tag: \(error.localizedDescription)")
                 completion(nil)
@@ -1344,7 +1376,7 @@ extension WebViewController {
         })();
         """
         
-        webView.evaluateJavaScript(script) { [weak self] result, error in
+        _webView.evaluateJavaScript(script) { [weak self] result, error in
             if let error = error {
                 NSLog("❌ Error finding manifest: \(error.localizedDescription)")
                 completion(nil)
@@ -1741,7 +1773,7 @@ extension WebViewController {
     
     /// Update lock icon visibility and color based on URL scheme
     private func updateLockIcon() {
-        guard let url = webView.url else {
+        guard let url = _webView.url else {
             lockIcon.isHidden = true
             urlField.hasLockIcon = false
             return
@@ -1823,5 +1855,6 @@ protocol WebViewControllerDelegate: AnyObject {
     func webViewController(_ controller: WebViewController, didRequestNewBubble url: String)
     func webViewController(_ controller: WebViewController, didUpdateURL url: String)
     func webViewController(_ controller: WebViewController, didUpdateFavicon image: NSImage)
+    func webViewController(_ controller: WebViewController, createPopupPanelFor url: URL, configuration: WKWebViewConfiguration) -> WKWebView?
 }
 

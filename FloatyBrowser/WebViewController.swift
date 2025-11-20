@@ -283,6 +283,14 @@ class WebViewController: NSViewController {
     // External configuration (used for popups)
     private var externalConfiguration: WKWebViewConfiguration?
     
+    // Track if this is a popup window (for OAuth auto-close detection)
+    private var isPopupWindow: Bool {
+        return externalConfiguration != nil
+    }
+    
+    // Track if we've seen OAuth-related URLs (to avoid closing blank pages prematurely)
+    private var hasSeenOAuthURL = false
+    
     // Use shared configuration for session sharing across all bubbles
     private lazy var webConfiguration: WKWebViewConfiguration = {
         // If external config provided (e.g., for popups), use it
@@ -1028,6 +1036,10 @@ extension WebViewController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         progressIndicator.isHidden = false
         progressIndicator.doubleValue = 0
+        
+        if let url = webView.url {
+            NSLog("🔄 Navigation started: \(url.absoluteString)")
+        }
     }
     
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -1044,6 +1056,11 @@ extension WebViewController: WKNavigationDelegate {
         // Extract and apply theme colors if enabled
         if useThemeColors {
             extractAndApplyThemeColor()
+        }
+        
+        // Check if this looks like an OAuth callback that should close
+        if let url = webView.url {
+            checkForOAuthCallbackAndClose(url: url, webView: webView)
         }
     }
     
@@ -1118,6 +1135,74 @@ extension WebViewController: WKUIDelegate {
         
         // Notify delegate that this popup should be closed
         delegate?.webViewControllerDidRequestClose(self)
+    }
+    
+    /// Detects OAuth callback URLs and auto-closes popup windows
+    /// Many OAuth flows expect the parent to close the popup, but since JavaScript
+    /// can't access our WKWebView as a window reference, we auto-detect and close
+    private func checkForOAuthCallbackAndClose(url: URL, webView: WKWebView) {
+        // Only run this logic for popup windows
+        guard isPopupWindow else { return }
+        
+        let urlString = url.absoluteString.lowercased()
+        let path = url.path.lowercased()
+        let query = url.query?.lowercased() ?? ""
+        
+        // Check for blank page (common after OAuth redirect completes)
+        let isBlankPage = urlString == "about:blank" || urlString.isEmpty
+        
+        // OAuth URL patterns (not necessarily callbacks, but OAuth-related)
+        let isOAuthRelated = 
+            urlString.contains("/oauth") ||
+            urlString.contains("/auth") ||
+            urlString.contains("/signin") ||
+            urlString.contains("/login") ||
+            urlString.contains("accounts.google.com") ||
+            urlString.contains("login.microsoftonline.com") ||
+            urlString.contains("appleid.apple.com")
+        
+        if isOAuthRelated {
+            hasSeenOAuthURL = true
+        }
+        
+        // OAuth callback indicators (these indicate completion)
+        let isOAuthCallback = 
+            // OAuth 2.0 callback patterns
+            urlString.contains("/oauth/callback") ||
+            urlString.contains("/oauth2/callback") ||
+            urlString.contains("/oauth/authorize") ||
+            urlString.contains("/signin/oauth/consent") ||
+            urlString.contains("/oauth/success") ||
+            urlString.contains("/oauth/complete") ||
+            urlString.contains("/auth/callback") ||
+            path.contains("/callback") ||
+            path.contains("/redirect") ||
+            // Query parameters indicating OAuth callback
+            query.contains("code=") ||
+            query.contains("oauth_token=") ||
+            query.contains("oauth_verifier=") ||
+            query.contains("state=") && query.contains("code=") ||
+            // Success indicators
+            urlString.contains("login_success") ||
+            urlString.contains("auth_success") ||
+            urlString.contains("authenticated") ||
+            // Blank page after OAuth (only if we've seen OAuth URLs before)
+            (isBlankPage && hasSeenOAuthURL)
+        
+        if isOAuthCallback {
+            NSLog("🎯 OAuth callback detected: \(url.absoluteString)")
+            NSLog("   ↳ Pattern: \(isBlankPage ? "blank page after OAuth" : "callback URL")")
+            NSLog("   ↳ Auto-closing popup in 1.5 seconds to complete authentication")
+            
+            // Give JavaScript time to send postMessage to parent, then close
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                guard let self = self else { return }
+                NSLog("⏰ Auto-close timer triggered - closing OAuth popup")
+                self.delegate?.webViewControllerDidRequestClose(self)
+            }
+        } else if isPopupWindow {
+            NSLog("🔍 Popup navigation: \(url.absoluteString)")
+        }
     }
 }
 

@@ -2,7 +2,7 @@
 //  AppDelegate.swift
 //  FloatyBrowser
 //
-//  Main application delegate for Floaty Browser.
+//  Main application delegate for Floaty Browser.q
 
 import Cocoa
 

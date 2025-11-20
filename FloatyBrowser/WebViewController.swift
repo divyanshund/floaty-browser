@@ -1654,17 +1654,18 @@ extension WebViewController {
         newBubbleButton.contentTintColor = iconColor
         minimizeToBubbleButton.contentTintColor = iconColor
         
-        // Apply to URL field text
-        urlField.textColor = textColor
+        // Address bar text: ALWAYS use dark text since address bar has light background
+        // The address bar maintains a light background (controlBackgroundColor) regardless of toolbar color
+        urlField.textColor = NSColor.labelColor  // Dark text (adapts to system theme)
         urlField.placeholderAttributedString = NSAttributedString(
             string: "Search or enter website",
             attributes: [
-                .foregroundColor: placeholderColor,
+                .foregroundColor: NSColor.placeholderTextColor,
                 .font: NSFont.systemFont(ofSize: 13)
             ]
         )
         
-        // Update URL field border for contrast
+        // Update URL field border based on toolbar background (for contrast with toolbar)
         if isDarkBackground {
             urlField.layer?.borderColor = NSColor.white.withAlphaComponent(0.2).cgColor
         } else {

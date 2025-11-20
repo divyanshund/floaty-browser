@@ -275,7 +275,7 @@ class WebViewController: NSViewController {
         // This keeps the address bar expanding with the window while keeping the plus button separate
         let buttonSize: CGFloat = 28
         let rightMargin: CGFloat = 12
-        let spacingBeforePlus: CGFloat = 18  // Match spacing from setupToolbar
+        let spacingBeforePlus: CGFloat = 24  // Match spacing from setupToolbar
         
         // Calculate where plus button should be (it auto-positions via autoresizingMask)
         let plusButtonX = view.bounds.width - buttonSize - rightMargin
@@ -388,14 +388,14 @@ class WebViewController: NSViewController {
         reloadButton.toolTip = "Reload Page"
         styleModernButton(reloadButton)
         toolbar.addSubview(reloadButton)
-        xOffset += buttonSize + 18  // Extra spacing before address bar (18px instead of 12px)
+        xOffset += buttonSize + 24  // Extra spacing before address bar for rounded corners
         
         // Calculate plus button position (need this for address bar width calculation)
         let rightMargin: CGFloat = 12
         let plusButtonX = view.bounds.width - buttonSize - rightMargin
         
         // URL field - positioned BETWEEN reload button and plus button
-        let spacingBeforePlus: CGFloat = 18  // More spacing to prevent overlap
+        let spacingBeforePlus: CGFloat = 24  // More spacing to prevent overlap with plus button
         let urlFieldWidth = plusButtonX - xOffset - spacingBeforePlus
         let urlFieldHeight: CGFloat = 34  // Slightly taller for better presence
         let urlFieldY = (toolbarHeight - urlFieldHeight) / 2

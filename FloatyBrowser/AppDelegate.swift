@@ -3,7 +3,6 @@
 //  FloatyBrowser
 //
 //  Main application delegate for Floaty Browser.
-//
 
 import Cocoa
 

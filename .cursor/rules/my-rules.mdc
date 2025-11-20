@@ -1,0 +1,5 @@
+---
+alwaysApply: true
+Never open the app/run the project unless I say.
+if its a mac os app, only build the project, dont run it.
+---

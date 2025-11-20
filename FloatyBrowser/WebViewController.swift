@@ -184,7 +184,6 @@ class WebViewController: NSViewController {
     private var webView: WKWebView!
     private var trafficLightArea: NSView!  // Can be NSVisualEffectView OR NSView
     private var toolbar: NSView!  // Can be NSVisualEffectView OR NSView
-    private let minimizeToBubbleButton = NSButton()
     private let backButton = HoverButton()
     private let forwardButton = HoverButton()
     private let reloadButton = HoverButton()
@@ -194,9 +193,6 @@ class WebViewController: NSViewController {
     private var progressIndicator: NSProgressIndicator!
     
     weak var delegate: WebViewControllerDelegate?
-    
-    // UserDefaults key for tracking first-time minimize
-    private let hasMinimizedBeforeKey = "hasMinimizedToBubbleBefore"
     
     // Check if theme colors are enabled (can change dynamically)
     private var useThemeColors: Bool
@@ -254,7 +250,6 @@ class WebViewController: NSViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        setupTrafficLightArea()
         setupToolbar()
         setupWebView()
         
@@ -273,15 +268,19 @@ class WebViewController: NSViewController {
         view.window?.makeFirstResponder(webView)
     }
     
-    private func setupTrafficLightArea() {
+    private func setupToolbar() {
+        // Add space for traffic lights (standard macOS titlebar height is ~28px, we'll use 30 for comfort)
         let trafficLightHeight: CGFloat = 30
+        let toolbarHeight: CGFloat = 44  // Slightly taller for better spacing
+        let totalTopHeight = trafficLightHeight + toolbarHeight
         
+        // Create traffic light area
         if useThemeColors {
             // Mode 1: Solid colored view
             let solidView = NSView(frame: NSRect(x: 0, y: view.bounds.height - trafficLightHeight, width: view.bounds.width, height: trafficLightHeight))
             solidView.autoresizingMask = [.width, .minYMargin]
             solidView.wantsLayer = true
-            solidView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor  // Start with default, will be colored later
+            solidView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
             trafficLightArea = solidView
             NSLog("✅ Created SOLID traffic light area (theme colors enabled)")
         } else {
@@ -295,55 +294,9 @@ class WebViewController: NSViewController {
             trafficLightArea = visualEffectView
             NSLog("✅ Created FROSTED GLASS traffic light area (theme colors disabled)")
         }
-        
-        // Add minimize to bubble button
-        setupMinimizeToBubbleButton()
-        
         view.addSubview(trafficLightArea)
-    }
-    
-    private func setupMinimizeToBubbleButton() {
-        let hasMinimizedBefore = UserDefaults.standard.bool(forKey: hasMinimizedBeforeKey)
         
-        // Configure button
-        minimizeToBubbleButton.isBordered = false
-        minimizeToBubbleButton.bezelStyle = .inline
-        minimizeToBubbleButton.target = self
-        minimizeToBubbleButton.action = #selector(collapseToBubble)
-        
-        // Set title/image based on whether user has minimized before
-        if hasMinimizedBefore {
-            // Icon only - modern SF Symbol
-            minimizeToBubbleButton.image = NSImage(systemSymbolName: "circle.fill", accessibilityDescription: "Minimize to Bubble")
-            minimizeToBubbleButton.imagePosition = .imageLeading
-            minimizeToBubbleButton.title = ""
-            minimizeToBubbleButton.frame = NSRect(x: 72, y: 5, width: 24, height: 20)
-        } else {
-            // Icon + text for first-time users
-            minimizeToBubbleButton.image = NSImage(systemSymbolName: "circle.fill", accessibilityDescription: "Minimize to Bubble")
-            minimizeToBubbleButton.imagePosition = .imageLeading
-            minimizeToBubbleButton.title = "Minimize to Bubble"
-            minimizeToBubbleButton.frame = NSRect(x: 72, y: 5, width: 160, height: 20)
-        }
-        
-        // Style the button
-        minimizeToBubbleButton.font = NSFont.systemFont(ofSize: 11)
-        minimizeToBubbleButton.contentTintColor = .secondaryLabelColor
-        
-        // Add tooltip for when text is hidden
-        if hasMinimizedBefore {
-            minimizeToBubbleButton.toolTip = "Minimize to Bubble"
-        }
-        
-        trafficLightArea.addSubview(minimizeToBubbleButton)
-    }
-    
-    private func setupToolbar() {
-        // Add space for traffic lights (standard macOS titlebar height is ~28px, we'll use 30 for comfort)
-        let trafficLightHeight: CGFloat = 30
-        let toolbarHeight: CGFloat = 44  // Slightly taller for better spacing
-        let totalTopHeight = trafficLightHeight + toolbarHeight
-        
+        // Create toolbar
         if useThemeColors {
             // Mode 1: Solid colored view
             let solidView = NSView(frame: NSRect(x: 0, y: view.bounds.height - totalTopHeight, width: view.bounds.width, height: toolbarHeight))
@@ -646,40 +599,6 @@ class WebViewController: NSViewController {
         if let url = webView.url {
             delegate?.webViewController(self, didRequestNewBubble: url.absoluteString)
         }
-    }
-    
-    @objc private func collapseToBubble() {
-        // Tell the panel window to collapse (NOT close/delete)
-        NSLog("🔵 WebViewController: Collapse button clicked")
-        
-        // Check if this is the first time user is minimizing
-        let hasMinimizedBefore = UserDefaults.standard.bool(forKey: hasMinimizedBeforeKey)
-        if !hasMinimizedBefore {
-            // First time! Update button to show only icon
-            UserDefaults.standard.set(true, forKey: hasMinimizedBeforeKey)
-            animateButtonToIconOnly()
-        }
-        
-        guard let panelWindow = view.window as? PanelWindow else {
-            NSLog("❌ Window is not a PanelWindow")
-            return
-        }
-        NSLog("🔵 Calling panelDelegate.panelWindowDidRequestCollapse")
-        panelWindow.panelDelegate?.panelWindowDidRequestCollapse(panelWindow)
-    }
-    
-    private func animateButtonToIconOnly() {
-        NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.3
-            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            
-            // Animate the button size to icon-only
-            minimizeToBubbleButton.animator().frame = NSRect(x: 72, y: 5, width: 24, height: 20)
-        }, completionHandler: { [weak self] in
-            // After animation, remove the title (keep icon only)
-            self?.minimizeToBubbleButton.title = ""
-            self?.minimizeToBubbleButton.toolTip = "Minimize to Bubble"
-        })
     }
     
     func suspendWebView() {
@@ -1628,23 +1547,17 @@ extension WebViewController {
         // Threshold: 0.5 (50% gray)
         let isDarkBackground = luminance < 0.5
         
-        // Choose appropriate colors for icons and text
+        // Choose appropriate icon color based on background
         let iconColor: NSColor
-        let textColor: NSColor
-        let placeholderColor: NSColor
         
         if isDarkBackground {
-            // Light icons and text for dark backgrounds
+            // Light icons for dark backgrounds
             iconColor = NSColor.white.withAlphaComponent(0.9)
-            textColor = NSColor.white
-            placeholderColor = NSColor.white.withAlphaComponent(0.5)
-            NSLog("🎨 Dark background detected (luminance: \(luminance)) → Using LIGHT icons/text")
+            NSLog("🎨 Dark background detected (luminance: \(luminance)) → Using LIGHT icons")
         } else {
-            // Dark icons and text for light backgrounds
+            // Dark icons for light backgrounds
             iconColor = NSColor.black.withAlphaComponent(0.7)
-            textColor = NSColor.black
-            placeholderColor = NSColor.black.withAlphaComponent(0.4)
-            NSLog("🎨 Light background detected (luminance: \(luminance)) → Using DARK icons/text")
+            NSLog("🎨 Light background detected (luminance: \(luminance)) → Using DARK icons")
         }
         
         // Apply to navigation buttons
@@ -1652,7 +1565,6 @@ extension WebViewController {
         forwardButton.contentTintColor = iconColor
         reloadButton.contentTintColor = iconColor
         newBubbleButton.contentTintColor = iconColor
-        minimizeToBubbleButton.contentTintColor = iconColor
         
         // Address bar text: ALWAYS use dark text since address bar has light background
         // The address bar maintains a light background (controlBackgroundColor) regardless of toolbar color
@@ -1689,7 +1601,6 @@ extension WebViewController {
         forwardButton.contentTintColor = defaultIconColor
         reloadButton.contentTintColor = defaultIconColor
         newBubbleButton.contentTintColor = defaultIconColor
-        minimizeToBubbleButton.contentTintColor = defaultIconColor
         
         // Reset URL field text
         urlField.textColor = defaultTextColor

@@ -1608,16 +1608,21 @@ extension WebViewController {
         reloadButton.contentTintColor = iconColor
         newBubbleButton.contentTintColor = iconColor
         
-        // Address bar text: ALWAYS use dark text since address bar has light background
-        // The address bar maintains a light background (controlBackgroundColor) regardless of toolbar color
-        urlField.textColor = NSColor.labelColor  // Dark text (adapts to system theme)
+        // Address bar text: Use darker/lighter version of address bar's own color for harmony
+        // This creates better contrast while maintaining color consistency
+        let addressBarTextColor = deriveTextColor(from: urlField.backgroundColor ?? NSColor.controlBackgroundColor)
+        let addressBarPlaceholderColor = addressBarTextColor.withAlphaComponent(0.5)
+        
+        urlField.textColor = addressBarTextColor
         urlField.placeholderAttributedString = NSAttributedString(
             string: "Search or enter website",
             attributes: [
-                .foregroundColor: NSColor.placeholderTextColor,
+                .foregroundColor: addressBarPlaceholderColor,
                 .font: NSFont.systemFont(ofSize: 13)
             ]
         )
+        
+        NSLog("🎨 Address bar text color derived from background")
         
         // Update URL field border based on toolbar background (for contrast with toolbar)
         if isDarkBackground {
@@ -1627,6 +1632,46 @@ extension WebViewController {
         }
         
         NSLog("✅ UI elements adapted for accessibility")
+    }
+    
+    /// Derive text color from background color
+    /// Creates darker version for light backgrounds, lighter version for dark backgrounds
+    /// Maintains color harmony while ensuring contrast
+    private func deriveTextColor(from backgroundColor: NSColor) -> NSColor {
+        guard let rgbColor = backgroundColor.usingColorSpace(.deviceRGB) else {
+            return NSColor.labelColor  // Fallback to system label color
+        }
+        
+        let red = rgbColor.redComponent
+        let green = rgbColor.greenComponent
+        let blue = rgbColor.blueComponent
+        let luminance = 0.299 * red + 0.587 * green + 0.114 * blue
+        
+        if luminance < 0.5 {
+            // Dark background → Lighten the color
+            // Increase brightness significantly for readability
+            let lightenFactor: CGFloat = 0.7  // 70% lighter
+            let textColor = NSColor(
+                red: red + (1.0 - red) * lightenFactor,
+                green: green + (1.0 - green) * lightenFactor,
+                blue: blue + (1.0 - blue) * lightenFactor,
+                alpha: 1.0  // Full opacity for text
+            )
+            NSLog("🎨 Dark address bar (luminance: \(luminance)) → Lightened text color")
+            return textColor
+        } else {
+            // Light background → Darken the color
+            // Decrease brightness significantly for readability
+            let darkenFactor: CGFloat = 0.7  // 70% darker
+            let textColor = NSColor(
+                red: red * (1.0 - darkenFactor),
+                green: green * (1.0 - darkenFactor),
+                blue: blue * (1.0 - darkenFactor),
+                alpha: 1.0  // Full opacity for text
+            )
+            NSLog("🎨 Light address bar (luminance: \(luminance)) → Darkened text color")
+            return textColor
+        }
     }
     
     /// Reset icon and text colors to default (for frosted glass mode)

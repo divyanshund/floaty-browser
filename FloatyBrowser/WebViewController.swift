@@ -7,6 +7,7 @@
 
 import Cocoa
 import WebKit
+import AuthenticationServices
 
 // Custom text field with browser-style select-all behavior
 // Selects all text on first click, allows normal cursor positioning while editing
@@ -288,6 +289,9 @@ class WebViewController: NSViewController {
         return externalConfiguration != nil
     }
     
+    // OAuth authentication session (Apple's official OAuth API)
+    private var authSession: ASWebAuthenticationSession?
+    
     // Track if we've seen OAuth-related URLs (to avoid closing blank pages prematurely)
     private var hasSeenOAuthURL = false
     
@@ -307,77 +311,6 @@ class WebViewController: NSViewController {
                 forMainFrameOnly: true
             )
             external.userContentController.addUserScript(viewportScript)
-            
-            // Add OAuth diagnostic script for popup windows
-            let diagnosticScript = WKUserScript(
-                source: """
-                (function() {
-                    console.log('🔍 [OAUTH DIAGNOSTIC] Script loaded');
-                    console.log('🔍 [OAUTH DIAGNOSTIC] window.opener exists:', !!window.opener);
-                    console.log('🔍 [OAUTH DIAGNOSTIC] window.name:', window.name);
-                    console.log('🔍 [OAUTH DIAGNOSTIC] Current URL:', window.location.href);
-                    
-                    // Monitor postMessage calls
-                    const originalPostMessage = window.postMessage;
-                    window.postMessage = function(...args) {
-                        console.log('📤 [OAUTH DIAGNOSTIC] window.postMessage called:', args);
-                        return originalPostMessage.apply(this, args);
-                    };
-                    
-                    // Monitor window.opener.postMessage if it exists
-                    if (window.opener) {
-                        console.log('✅ [OAUTH DIAGNOSTIC] window.opener is available!');
-                        try {
-                            const originalOpenerPostMessage = window.opener.postMessage;
-                            window.opener.postMessage = function(...args) {
-                                console.log('📤 [OAUTH DIAGNOSTIC] window.opener.postMessage called:', args);
-                                return originalOpenerPostMessage.apply(this, args);
-                            };
-                        } catch(e) {
-                            console.log('❌ [OAUTH DIAGNOSTIC] Cannot intercept window.opener.postMessage:', e.message);
-                        }
-                    } else {
-                        console.log('❌ [OAUTH DIAGNOSTIC] window.opener is NULL!');
-                    }
-                    
-                    // Override window.close to detect when it's called
-                    const originalClose = window.close;
-                    window.close = function() {
-                        console.log('🔔 [OAUTH DIAGNOSTIC] window.close() called!');
-                        console.log('🔔 [OAUTH DIAGNOSTIC] Current URL at close:', window.location.href);
-                        return originalClose.call(this);
-                    };
-                    
-                    // Listen for URL changes
-                    let lastUrl = window.location.href;
-                    setInterval(() => {
-                        if (window.location.href !== lastUrl) {
-                            console.log('🔄 [OAUTH DIAGNOSTIC] URL changed:', window.location.href);
-                            console.log('🔄 [OAUTH DIAGNOSTIC] window.opener still exists:', !!window.opener);
-                            lastUrl = window.location.href;
-                        }
-                    }, 500);
-                    
-                    // Log when page becomes blank
-                    setTimeout(() => {
-                        if (document.body && document.body.innerHTML.trim().length < 100) {
-                            console.log('⚪ [OAUTH DIAGNOSTIC] Page is nearly blank!');
-                            console.log('⚪ [OAUTH DIAGNOSTIC] Body content:', document.body.innerHTML);
-                        }
-                    }, 1000);
-                })();
-                """,
-                injectionTime: .atDocumentStart,
-                forMainFrameOnly: true
-            )
-            external.userContentController.addUserScript(diagnosticScript)
-            
-            // Add message handler to capture JavaScript console logs
-            // (Note: This is just for documentation - console.log already appears in Xcode console)
-            
-            NSLog("✅ WebViewController: Using external WebKit configuration (popup)")
-            NSLog("✅ Added OAuth diagnostic logging script")
-            NSLog("✅ JavaScript in popup will log window.opener status, postMessage calls, and window.close()")
             return external
         }
         
@@ -444,13 +377,6 @@ class WebViewController: NSViewController {
             object: nil
         )
         
-        // Listen for OAuth popup closing to reload and detect new authentication
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(oauthPopupClosed(_:)),
-            name: .oauthPopupClosed,
-            object: nil
-        )
     }
     
     override func viewDidAppear() {
@@ -483,8 +409,6 @@ class WebViewController: NSViewController {
             
             // Also update progress bar to match
             addressBarProgressView.frame.size.width = newUrlFieldWidth
-            
-            NSLog("🔄 viewDidLayout - Address bar width updated to: \(newUrlFieldWidth) (available: \(availableWidth))")
         }
     }
     
@@ -945,21 +869,6 @@ class WebViewController: NSViewController {
     
     // MARK: - Dynamic Mode Switching
     
-    @objc private func oauthPopupClosed(_ notification: Notification) {
-        // Don't reload popup windows themselves, only parent windows
-        guard !isPopupWindow else {
-            NSLog("🔄 OAuth popup closed notification received in popup window - ignoring")
-            return
-        }
-        
-        NSLog("🔄 OAuth popup closed - reloading page to detect new authentication")
-        NSLog("🔄 Current URL: \(_webView.url?.absoluteString ?? "none")")
-        
-        // Reload the current page so JavaScript can detect the new authentication cookies
-        // This allows Twitter/X to detect that the user is now logged in via Google
-        _webView.reload()
-    }
-    
     @objc private func themeColorModeChanged(_ notification: Notification) {
         guard let enabled = notification.userInfo?["enabled"] as? Bool else { return }
         
@@ -1120,7 +1029,7 @@ extension WebViewController: NSTextFieldDelegate {
 extension WebViewController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         // Note: Popup/new window requests are handled in WKUIDelegate.createWebView
-        // We don't handle them here to avoid duplicate bubble creation
+        // OAuth is handled by ASWebAuthenticationSession
         
         // Allow all normal navigation
         decisionHandler(.allow)
@@ -1129,14 +1038,11 @@ extension WebViewController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         progressIndicator.isHidden = false
         progressIndicator.doubleValue = 0
-        
-        if let url = webView.url {
-            if isPopupWindow {
-                NSLog("🔄 [POPUP] Navigation started: \(url.absoluteString)")
-            } else {
-                NSLog("🔄 Navigation started: \(url.absoluteString)")
-            }
-        }
+    }
+    
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        NSLog("📍 Page committed (started loading): \(webView.url?.absoluteString ?? "unknown")")
+        // Test now runs via injected JavaScript (see webConfiguration)
     }
     
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -1153,45 +1059,6 @@ extension WebViewController: WKNavigationDelegate {
         // Extract and apply theme colors if enabled
         if useThemeColors {
             extractAndApplyThemeColor()
-        }
-        
-        // Check if this looks like an OAuth callback that should close
-        if let url = webView.url {
-            NSLog("✅ Page loaded: \(url.absoluteString)")
-            
-            // For popup windows, check window.opener status
-            if isPopupWindow {
-                checkWindowOpenerStatus(webView: webView)
-            }
-            
-            checkForOAuthCallbackAndClose(url: url, webView: webView)
-        }
-    }
-    
-    /// Check if window.opener relationship is working in popup
-    private func checkWindowOpenerStatus(webView: WKWebView) {
-        webView.evaluateJavaScript("!!window.opener") { result, error in
-            if let hasOpener = result as? Bool {
-                if hasOpener {
-                    NSLog("✅ [DIAGNOSTIC] window.opener EXISTS in popup!")
-                    NSLog("✅ [DIAGNOSTIC] Standard OAuth flow should work!")
-                } else {
-                    NSLog("❌ [DIAGNOSTIC] window.opener is NULL in popup!")
-                    NSLog("❌ [DIAGNOSTIC] This means parent-child relationship is broken!")
-                    NSLog("❌ [DIAGNOSTIC] Parent cannot close this popup via JavaScript")
-                    NSLog("💡 [DIAGNOSTIC] Workaround: Using auto-close detection for OAuth callbacks")
-                    NSLog("💡 [DIAGNOSTIC] Will detect OAuth completion patterns and auto-close")
-                }
-            } else if let error = error {
-                NSLog("⚠️ [DIAGNOSTIC] Failed to check window.opener: \(error.localizedDescription)")
-            }
-        }
-        
-        // Also check if window.close is available
-        webView.evaluateJavaScript("typeof window.close") { result, error in
-            if let type = result as? String {
-                NSLog("🔍 [DIAGNOSTIC] window.close type: \(type)")
-            }
         }
     }
     
@@ -1216,40 +1083,214 @@ extension WebViewController: WKNavigationDelegate {
 
 extension WebViewController: WKUIDelegate {
     /// Handle popup window requests (window.open(), target="_blank", etc.)
-    /// Creates a new panel window and returns its WKWebView for proper WebKit integration
+    /// OAuth popups use ASWebAuthenticationSession, other popups open in new panels
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
         guard let url = navigationAction.request.url else {
             NSLog("⚠️ Popup request with no URL, ignoring")
             return nil
         }
         
-        NSLog("🪟 POPUP REQUEST: Creating new panel for \(url.absoluteString)")
-        NSLog("   ↳ Reason: \(navigationAction.navigationType.rawValue)")
-        NSLog("   ↳ Target frame: \(navigationAction.targetFrame == nil ? "nil (new window)" : "exists")")
-        NSLog("   ↳ WebKit provided configuration has processPool: \(configuration.processPool)")
-        NSLog("   ↳ WebKit provided configuration has dataStore: \(configuration.websiteDataStore)")
+        // Check if this is OAuth - use ASWebAuthenticationSession for ALL OAuth
+        if isOAuthURL(url) {
+            NSLog("🔐 OAuth detected - using ASWebAuthenticationSession")
+            startOAuthWithAuthenticationSession(url: url, parentWebView: webView)
+            return nil  // Don't create popup - ASWebAuthenticationSession handles it
+        }
         
-        // Check if parent window has stored the popup reference (should happen automatically)
-        // We'll check this after a brief delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak webView] in
-            webView?.evaluateJavaScript("window.___popupWindowCount = (window.___popupWindowCount || 0) + 1; window.___popupWindowCount") { result, error in
-                if let count = result as? Int {
-                    NSLog("🔍 [PARENT DIAGNOSTIC] Parent has opened \(count) popup(s)")
+        // For non-OAuth popups, create a new panel
+        if let popupWebView = delegate?.webViewController(self, createPopupPanelFor: url, configuration: configuration) {
+            return popupWebView
+        }
+        return nil
+    }
+    
+    /// Start OAuth flow using Apple's ASWebAuthenticationSession
+    /// This is the official, proper way to handle OAuth in native macOS apps
+    private func startOAuthWithAuthenticationSession(url: URL, parentWebView: WKWebView) {
+        // Check if we already have an active session
+        if authSession != nil {
+            NSLog("⚠️ OAuth session already in progress (normal for multi-step OAuth)")
+            return
+        }
+        
+        NSLog("🚀 Starting OAuth with ASWebAuthenticationSession")
+        
+        // Extract the callback URL scheme from the OAuth URL
+        let callbackScheme = extractCallbackScheme(from: url)
+        
+        // Store reference to parent WebView for later
+        let parentWebViewRef = parentWebView
+        
+        // Create authentication session
+        authSession = ASWebAuthenticationSession(
+            url: url,
+            callbackURLScheme: callbackScheme
+        ) { [weak self] callbackURL, error in
+            DispatchQueue.main.async {
+                self?.handleAuthenticationSessionCallback(
+                    callbackURL: callbackURL,
+                    error: error,
+                    parentWebView: parentWebViewRef
+                )
+            }
+        }
+        
+        // Set presentation context provider
+        if let session = authSession {
+            // For ASWebAuthenticationSession to work, it needs a presentation context
+            if #available(macOS 10.15, *) {
+                session.presentationContextProvider = self
+            }
+            
+            // Prefer ephemeral session (doesn't persist cookies)
+            // Set to false so cookies ARE shared with our WebView
+            session.prefersEphemeralWebBrowserSession = false
+            
+            // IMPORTANT: For Google Sign-In to work, we need to allow it to use
+            // the system's authentication cookies. This is already enabled above.
+            
+            // Start the session
+            let started = session.start()
+            
+            if started {
+                NSLog("✅ ASWebAuthenticationSession started successfully")
+                NSLog("   ↳ System authentication sheet will appear")
+                NSLog("   ↳ User will authenticate in secure system view")
+            } else {
+                NSLog("❌ Failed to start ASWebAuthenticationSession")
+            }
+        } else {
+            NSLog("❌ Failed to create ASWebAuthenticationSession")
+        }
+    }
+    
+    /// Extract callback URL scheme from OAuth URL
+    /// This parses the redirect_uri parameter to determine what scheme to intercept
+    private func extractCallbackScheme(from url: URL) -> String {
+        // Try to find redirect_uri in the OAuth URL
+        if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+           let queryItems = components.queryItems {
+            for item in queryItems where item.name == "redirect_uri" {
+                if let redirectURI = item.value,
+                   let redirectURL = URL(string: redirectURI),
+                   let scheme = redirectURL.scheme {
+                    return scheme
                 }
             }
         }
         
-        // Ask delegate to create a popup panel and return its WKWebView
-        // This ensures proper WebKit integration for OAuth and window.opener
-        if let popupWebView = delegate?.webViewController(self, createPopupPanelFor: url, configuration: configuration) {
-            NSLog("✅ Popup panel created, returning WKWebView to WebKit")
-            NSLog("✅ Popup WKWebView: \(popupWebView)")
-            NSLog("✅ This WKWebView should establish window.opener relationship")
-            return popupWebView
-        } else {
-            NSLog("⚠️ Failed to create popup panel")
-            return nil
+        // Default to https if we can't find redirect_uri
+        return "https"
+    }
+    
+    /// Handle callback from ASWebAuthenticationSession
+    private func handleAuthenticationSessionCallback(callbackURL: URL?, error: Error?, parentWebView: WKWebView) {
+        // Clear session reference
+        authSession = nil
+        
+        if let error = error {
+            let nsError = error as NSError
+            
+            // Check if user cancelled
+            if nsError.domain == ASWebAuthenticationSessionErrorDomain &&
+               nsError.code == ASWebAuthenticationSessionError.canceledLogin.rawValue {
+                NSLog("⚠️ OAuth cancelled or completed")
+                
+                // Try reloading parent page in case OAuth set cookies
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    parentWebView.reload()
+                }
+                return
+            }
+            
+            NSLog("❌ OAuth error: \(error.localizedDescription)")
+            return
         }
+        
+        guard let callbackURL = callbackURL else {
+            NSLog("❌ No callback URL received from OAuth")
+            return
+        }
+        
+        NSLog("✅ OAuth callback received - completing login")
+        
+        // Navigate parent WebView to the callback URL
+        // The website will process this and complete the login
+        parentWebView.load(URLRequest(url: callbackURL))
+        
+        // Bring app to foreground
+        NSApp.activate(ignoringOtherApps: true)
+    }
+    
+    /// Detects if a URL is an OAuth/authentication URL
+    /// OAuth URLs are handled by ASWebAuthenticationSession
+    private func isOAuthURL(_ url: URL) -> Bool {
+        let urlString = url.absoluteString.lowercased()
+        let host = url.host?.lowercased() ?? ""
+        let path = url.path.lowercased()
+        
+        // Well-known OAuth providers (by domain) - ALL OAuth types
+        let oauthProviderDomains = [
+            "accounts.google.com",           // Google OAuth & GSI
+            "facebook.com",                  // Facebook OAuth & SDK
+            "login.microsoftonline.com",     // Microsoft OAuth
+            "appleid.apple.com",             // Apple Sign In
+            "twitter.com/oauth",             // Twitter OAuth (legacy)
+            "twitter.com/i/oauth",           // Twitter OAuth (new)
+            "x.com/oauth",                   // X (Twitter) OAuth
+            "github.com/login/oauth",        // GitHub OAuth
+            "linkedin.com/oauth",            // LinkedIn OAuth
+            "discord.com/oauth2",            // Discord OAuth
+            "slack.com/oauth",               // Slack OAuth
+        ]
+        
+        // Check if host matches known OAuth providers
+        for domain in oauthProviderDomains {
+            if host.contains(domain) || urlString.contains(domain) {
+                return true
+            }
+        }
+        
+        // OAuth path patterns
+        let oauthPathPatterns = [
+            "/oauth",
+            "/oauth2",
+            "/oauth/authorize",
+            "/oauth/authentication",
+            "/auth/signin",
+            "/auth/login",
+            "/signin",
+            "/login",
+            "/sso",
+            "/saml",
+            "/authorize",
+        ]
+        
+        for pattern in oauthPathPatterns {
+            if path.contains(pattern) {
+                return true
+            }
+        }
+        
+        // OAuth query parameters (strong indicators)
+        if let query = url.query?.lowercased() {
+            let oauthQueryPatterns = [
+                "response_type=code",
+                "response_type=token",
+                "client_id=",
+                "redirect_uri=",
+                "scope=",
+                "oauth",
+            ]
+            
+            for pattern in oauthQueryPatterns {
+                if query.contains(pattern) {
+                    return true
+                }
+            }
+        }
+        
+        return false
     }
     
     func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
@@ -1274,96 +1315,18 @@ extension WebViewController: WKUIDelegate {
     }
     
     func webViewDidClose(_ webView: WKWebView) {
-        NSLog("🔔 webViewDidClose called - JavaScript executed window.close()")
-        NSLog("   ↳ This is typically after OAuth callback completes")
-        
-        // Notify delegate that this popup should be closed
         delegate?.webViewControllerDidRequestClose(self)
     }
     
-    /// Detects OAuth callback URLs and auto-closes popup windows
-    /// Many OAuth flows expect the parent to close the popup, but since JavaScript
-    /// can't access our WKWebView as a window reference, we auto-detect and close
-    private func checkForOAuthCallbackAndClose(url: URL, webView: WKWebView) {
-        // Only run this logic for popup windows
-        guard isPopupWindow else { return }
-        
-        let urlString = url.absoluteString.lowercased()
-        let path = url.path.lowercased()
-        let query = url.query?.lowercased() ?? ""
-        
-        // Check for blank page (common after OAuth redirect completes)
-        let isBlankPage = urlString == "about:blank" || urlString.isEmpty
-        
-        // OAuth URL patterns (not necessarily callbacks, but OAuth-related)
-        let isOAuthRelated = 
-            urlString.contains("/oauth") ||
-            urlString.contains("/auth") ||
-            urlString.contains("/signin") ||
-            urlString.contains("/login") ||
-            urlString.contains("/gsi/") ||  // Google Identity Services
-            urlString.contains("accounts.google.com") ||
-            urlString.contains("login.microsoftonline.com") ||
-            urlString.contains("appleid.apple.com") ||
-            urlString.contains("twitter.com/oauth") ||
-            urlString.contains("facebook.com/login") ||
-            urlString.contains("github.com/login")
-        
-        if isOAuthRelated {
-            hasSeenOAuthURL = true
-        }
-        
-        // OAuth callback indicators (these indicate completion)
-        let isOAuthCallback = 
-            // OAuth 2.0 callback patterns
-            urlString.contains("/oauth/callback") ||
-            urlString.contains("/oauth2/callback") ||
-            urlString.contains("/oauth/authorize") ||
-            urlString.contains("/signin/oauth/consent") ||
-            urlString.contains("/oauth/success") ||
-            urlString.contains("/oauth/complete") ||
-            urlString.contains("/auth/callback") ||
-            path.contains("/callback") ||
-            path.contains("/redirect") ||
-            // Google Identity Services patterns
-            urlString.contains("/gsi/transform") ||  // Google's OAuth transformation page
-            urlString.contains("/gsi/consent") ||
-            urlString.contains("/gsi/select") ||
-            // Query parameters indicating OAuth callback
-            query.contains("code=") ||
-            query.contains("oauth_token=") ||
-            query.contains("oauth_verifier=") ||
-            query.contains("state=") && query.contains("code=") ||
-            query.contains("authuser=") ||  // Google auth user parameter
-            // Success indicators
-            urlString.contains("login_success") ||
-            urlString.contains("auth_success") ||
-            urlString.contains("authenticated") ||
-            urlString.contains("approval_prompt") ||
-            // Blank page after OAuth (only if we've seen OAuth URLs before)
-            (isBlankPage && hasSeenOAuthURL)
-        
-        if isOAuthCallback {
-            NSLog("🎯 OAuth callback detected: \(url.absoluteString)")
-            NSLog("   ↳ Pattern: \(isBlankPage ? "blank page after OAuth" : "callback URL")")
-            NSLog("   ↳ window.opener is broken (see diagnostics), so auto-closing popup")
-            NSLog("   ↳ Auto-closing in 2 seconds to allow OAuth completion")
-            
-            // Since window.opener is broken (see diagnostics), the popup can't communicate
-            // with parent via postMessage anyway. We close after a delay to ensure:
-            // 1. OAuth callback completes in the background (cookies/tokens set)
-            // 2. Any redirects finish
-            // 3. Parent window has time to detect the authentication
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
-                guard let self = self else { return }
-                NSLog("⏰ Auto-close timer triggered - closing OAuth popup")
-                NSLog("⏰ Parent window should now have authentication cookies/session")
-                self.delegate?.webViewControllerDidRequestClose(self)
-            }
-        } else if isPopupWindow {
-            NSLog("🔍 Popup navigation: \(url.absoluteString)")
-            NSLog("🔍 Not an OAuth callback - popup will remain open")
-        }
+}
+
+// MARK: - ASWebAuthenticationPresentationContextProviding
+
+@available(macOS 10.15, *)
+extension WebViewController: ASWebAuthenticationPresentationContextProviding {
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        // Return the window that should present the authentication sheet
+        return view.window ?? NSApplication.shared.windows.first ?? NSWindow()
     }
 }
 
@@ -1373,63 +1336,55 @@ extension WebViewController {
     /// Main orchestrator - tries extraction methods in priority order
     func extractAndApplyThemeColor() {
         guard useThemeColors else {
-            NSLog("⚠️ Theme colors disabled, skipping extraction")
             return
         }
         
         guard let url = _webView.url, let host = url.host else {
-            NSLog("⚠️ No URL for theme color extraction")
             applyDefaultThemeColor()
             return
         }
         
-        NSLog("🎨 Starting theme color extraction for: \(host)")
+        NSLog("🎨 Extracting theme color for: \(host)")
         
         // Priority 1: Header/Nav color (visual accuracy)
         extractColorFromHeader { [weak self] color in
             guard let self = self else { return }
             
             if let color = color {
-                NSLog("✅ Found theme color from header: \(color)")
+                NSLog("✅ Theme color (header): \(color)")
                 self.currentThemeColor = color
                 self.applyThemeColor(color)
                 return
             }
-            
-            NSLog("⚠️ No header color, trying meta tag...")
             
             // Priority 2: Meta tag
             self.extractColorFromMetaTag { [weak self] color in
                 guard let self = self else { return }
                 
                 if let color = color {
-                    NSLog("✅ Found theme color from meta tag: \(color)")
+                    NSLog("✅ Theme color (meta tag): \(color)")
                     self.currentThemeColor = color
                     self.applyThemeColor(color)
                     return
                 }
-                
-                NSLog("⚠️ No meta tag, trying manifest...")
                 
                 // Priority 3: Web manifest
                 self.extractColorFromManifest { [weak self] color in
                     guard let self = self else { return }
                     
                     if let color = color {
-                        NSLog("✅ Found theme color from manifest: \(color)")
+                        NSLog("✅ Theme color (manifest): \(color)")
                         self.currentThemeColor = color
                         self.applyThemeColor(color)
                         return
                     }
-                    
-                    NSLog("⚠️ No manifest, trying favicon...")
                     
                     // Priority 4: Favicon dominant color
                     self.extractColorFromFavicon { [weak self] color in
                         guard let self = self else { return }
                         
                         if let color = color {
-                            NSLog("✅ Found theme color from favicon: \(color)")
+                            NSLog("✅ Theme color (favicon): \(color)")
                             self.currentThemeColor = color
                             self.applyThemeColor(color)
                             return
@@ -1447,12 +1402,10 @@ extension WebViewController {
     private func extractColorFromHeader(completion: @escaping (NSColor?) -> Void) {
         let script = """
         (function() {
-            console.log('🔍 Starting header color extraction...');
-            
             // Helper: Check if element is at/near top of viewport
             function isTopElement(el) {
                 var rect = el.getBoundingClientRect();
-                return rect.top >= -50 && rect.top <= 200; // Top or sticky header
+                return rect.top >= -50 && rect.top <= 200;
             }
             
             // Helper: Check if color is valid
@@ -1465,22 +1418,11 @@ extension WebViewController {
                 return true;
             }
             
-            // Strategy 1: Find the TOPMOST visible header/nav with solid background
+            // Find the TOPMOST visible header/nav with solid background
             var selectors = [
-                'header',
-                'nav',
-                '[role="banner"]',
-                '.header',
-                '.navbar',
-                '.top-bar',
-                '.site-header',
-                '#header',
-                '#navbar',
-                '.main-header',
-                '.navigation',
-                '[class*="header"]',
-                '[class*="navbar"]',
-                '[class*="navigation"]'
+                'header', 'nav', '[role="banner"]', '.header', '.navbar',
+                '.top-bar', '.site-header', '#header', '#navbar', '.main-header',
+                '.navigation', '[class*="header"]', '[class*="navbar"]', '[class*="navigation"]'
             ];
             
             var candidates = [];
@@ -1496,81 +1438,56 @@ extension WebViewController {
                         if (isValidColor(bgColor)) {
                             var rect = el.getBoundingClientRect();
                             candidates.push({
-                                element: selectors[i] + '[' + j + ']',
                                 color: bgColor,
                                 top: rect.top,
-                                width: rect.width,
-                                height: rect.height
+                                width: rect.width
                             });
                         }
                     }
                 }
             }
             
-            console.log('🔍 Found ' + candidates.length + ' candidate headers');
-            
             // Sort by: 1) closest to top, 2) widest
             candidates.sort(function(a, b) {
                 if (Math.abs(a.top - b.top) < 10) {
-                    return b.width - a.width; // Prefer wider
+                    return b.width - a.width;
                 }
-                return a.top - b.top; // Prefer higher
+                return a.top - b.top;
             });
             
             if (candidates.length > 0) {
-                var best = candidates[0];
-                console.log('✅ Best header: ' + best.element);
-                console.log('   Color: ' + best.color);
-                console.log('   Position: top=' + best.top + ', width=' + best.width);
-                return best.color;
+                return candidates[0].color;
             }
             
-            console.log('⚠️ No header found, trying body background');
-            
-            // Fallback: try body background (some minimal sites)
+            // Fallback: try body background
             var bodyStyle = window.getComputedStyle(document.body);
             var bodyBg = bodyStyle.backgroundColor;
             if (isValidColor(bodyBg)) {
-                console.log('✅ Using body background: ' + bodyBg);
                 return bodyBg;
             }
             
-            console.log('❌ No valid color found');
             return null;
         })();
         """
         
         _webView.evaluateJavaScript(script) { [weak self] result, error in
             if let error = error {
-                NSLog("❌ Error extracting header color: \(error.localizedDescription)")
+                NSLog("⚠️ Header extraction error: \(error.localizedDescription)")
                 completion(nil)
                 return
             }
             
-            guard let colorString = result as? String else {
-                NSLog("⚠️ No header color found")
+            guard let colorString = result as? String,
+                  let color = self?.parseColor(from: colorString) else {
                 completion(nil)
                 return
             }
             
-            NSLog("🎨 Header color string: '\(colorString)'")
-            let color = self?.parseColor(from: colorString)
-            if let color = color {
-                NSLog("🎨 Parsed header color to NSColor: \(color)")
-                
-                // Flatten color for modern look
-                let flattenedColor = self?.flattenColor(color) ?? color
-                
-                // Validate color quality
-                if let validColor = self?.validateColorQuality(flattenedColor) {
-                    NSLog("✅ Header color passed quality check")
-                    completion(validColor)
-                } else {
-                    NSLog("⚠️ Header color failed quality check (too light or too dark), skipping")
-                    completion(nil)
-                }
+            // Flatten color for modern look and validate quality
+            let flattenedColor = self?.flattenColor(color) ?? color
+            if let validColor = self?.validateColorQuality(flattenedColor) {
+                completion(validColor)
             } else {
-                NSLog("❌ Failed to parse header color string: '\(colorString)'")
                 completion(nil)
             }
         }
@@ -1586,36 +1503,18 @@ extension WebViewController {
         """
         
         _webView.evaluateJavaScript(script) { [weak self] result, error in
-            if let error = error {
-                NSLog("❌ Error extracting meta tag: \(error.localizedDescription)")
+            guard error == nil,
+                  let colorString = result as? String,
+                  let color = self?.parseColor(from: colorString) else {
                 completion(nil)
                 return
             }
             
-            guard let colorString = result as? String else {
-                NSLog("⚠️ No meta tag found")
-                completion(nil)
-                return
-            }
-            
-            NSLog("🎨 Meta tag color string: '\(colorString)'")
-            let color = self?.parseColor(from: colorString)
-            if let color = color {
-                NSLog("🎨 Parsed to NSColor: \(color)")
-                
-                // Flatten color for modern look
-                let flattenedColor = self?.flattenColor(color) ?? color
-                
-                // Validate color quality
-                if let validColor = self?.validateColorQuality(flattenedColor) {
-                    NSLog("✅ Color passed quality check")
-                    completion(validColor)
-                } else {
-                    NSLog("⚠️ Color failed quality check (too light or too dark), skipping")
-                    completion(nil)
-                }
+            // Flatten color for modern look and validate quality
+            let flattenedColor = self?.flattenColor(color) ?? color
+            if let validColor = self?.validateColorQuality(flattenedColor) {
+                completion(validColor)
             } else {
-                NSLog("❌ Failed to parse color string: '\(colorString)'")
                 completion(nil)
             }
         }

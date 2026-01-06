@@ -151,6 +151,11 @@ class WindowManager: NSObject {
             bubbles[panel.panelId] = newBubble
             bubble = newBubble
             
+            // IMPORTANT: For newly created bubbles, we need to properly initialize them
+            // Hide it first (will be shown after panel animates out)
+            newBubble.alphaValue = 0
+            newBubble.orderFrontRegardless()  // Register with window server
+            
             // Fetch favicon for the new bubble
             fetchFaviconForBubble(newBubble)
             

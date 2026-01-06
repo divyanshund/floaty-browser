@@ -136,8 +136,29 @@ class WindowManager: NSObject {
         NSLog("🟢 collapsePanel() called - MINIMIZE to bubble (keep website running)")
         NSLog("🟢 Panel ID: %@", panel.panelId.uuidString)
         
-        guard let bubble = bubbles[panel.panelId] else {
-            NSLog("❌ ERROR: No bubble found for panel")
+        // Check if this panel has an associated bubble
+        var bubble = bubbles[panel.panelId]
+        
+        if bubble == nil {
+            // This is a popup panel (e.g., from "Open in new window") without a bubble
+            // Create a bubble for it now so it can be minimized
+            NSLog("🟢 No bubble found - creating one for popup panel")
+            let currentURL = panel.getCurrentURL()
+            let position = calculateNewBubblePosition()
+            
+            let newBubble = BubbleWindow(id: panel.panelId, url: currentURL, position: position)
+            newBubble.bubbleDelegate = self
+            bubbles[panel.panelId] = newBubble
+            bubble = newBubble
+            
+            // Fetch favicon for the new bubble
+            fetchFaviconForBubble(newBubble)
+            
+            NSLog("🟢 Created bubble for popup panel at position: \(position)")
+        }
+        
+        guard let bubble = bubble else {
+            NSLog("❌ ERROR: Could not create or find bubble for panel")
             return
         }
         

@@ -21,8 +21,6 @@
 		1A0064 /* PreferencesWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0065 /* PreferencesWindowController.swift */; };
 		1A0066 /* PreferencesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0067 /* PreferencesViewController.swift */; };
 		1A0070 /* SharedWebConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0071 /* SharedWebConfiguration.swift */; };
-		E85034152ED06FFD009768B2 /* OAuthCallbackServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E85034142ED06FFD009768B2 /* OAuthCallbackServer.swift */; };
-		E85034172ED07665009768B2 /* OAuthPopupWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = E85034162ED07665009768B2 /* OAuthPopupWindow.swift */; };
 		E89C7BC52EBE131B006F99F2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E89C7BC42EBE131B006F99F2 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -54,8 +52,6 @@
 		1A0065 /* PreferencesWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesWindowController.swift; sourceTree = "<group>"; };
 		1A0067 /* PreferencesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesViewController.swift; sourceTree = "<group>"; };
 		1A0071 /* SharedWebConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedWebConfiguration.swift; sourceTree = "<group>"; };
-		E85034142ED06FFD009768B2 /* OAuthCallbackServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OAuthCallbackServer.swift; sourceTree = "<group>"; };
-		E85034162ED07665009768B2 /* OAuthPopupWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OAuthPopupWindow.swift; sourceTree = "<group>"; };
 		E89C7BC42EBE131B006F99F2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -89,8 +85,6 @@
 		1A0017 /* FloatyBrowser */ = {
 			isa = PBXGroup;
 			children = (
-				E85034162ED07665009768B2 /* OAuthPopupWindow.swift */,
-				E85034142ED06FFD009768B2 /* OAuthCallbackServer.swift */,
 				E89C7BC42EBE131B006F99F2 /* Assets.xcassets */,
 				1A0051 /* main.swift */,
 				1A0002 /* AppDelegate.swift */,
@@ -173,7 +167,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1500;
-				LastUpgradeCheck = 1500;
+				LastUpgradeCheck = 2620;
 				TargetAttributes = {
 					1A0019 = {
 						CreatedOnToolsVersion = 15.0;
@@ -227,7 +221,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E85034172ED07665009768B2 /* OAuthPopupWindow.swift in Sources */,
 				1A0050 /* main.swift in Sources */,
 				1A0001 /* AppDelegate.swift in Sources */,
 				1A0003 /* WindowManager.swift in Sources */,
@@ -239,7 +232,6 @@
 				1A0060 /* OnboardingWindowController.swift in Sources */,
 				1A0062 /* OnboardingViewController.swift in Sources */,
 				1A0064 /* PreferencesWindowController.swift in Sources */,
-				E85034152ED06FFD009768B2 /* OAuthCallbackServer.swift in Sources */,
 				1A0066 /* PreferencesViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -297,6 +289,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -321,6 +314,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -360,6 +354,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -377,6 +372,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 			};
 			name = Release;
@@ -389,8 +385,13 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 72J7K6HFLJ;
+				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
+				ENABLE_RESOURCE_ACCESS_CAMERA = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = FloatyBrowser/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
@@ -417,8 +418,13 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 72J7K6HFLJ;
+				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
+				ENABLE_RESOURCE_ACCESS_CAMERA = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = FloatyBrowser/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
@@ -443,6 +449,7 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
@@ -460,6 +467,7 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;

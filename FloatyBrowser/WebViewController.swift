@@ -1954,21 +1954,18 @@ extension WebViewController {
         let blue = rgbColor.blueComponent
         let luminance = 0.299 * red + 0.587 * green + 0.114 * blue
         
-        // Determine if background is light or dark
-        // Threshold: 0.5 (50% gray)
-        let isDarkBackground = luminance < 0.5
+        // Determine if toolbar background is light or dark
+        // Use a slightly lower threshold (0.45) to bias toward light icons on mid-tones
+        let isDarkToolbar = luminance < 0.45
         
-        // Choose appropriate icon color based on background
+        // Choose icon color based on toolbar background
         let iconColor: NSColor
-        
-        if isDarkBackground {
-            // Light icons for dark backgrounds
+        if isDarkToolbar {
             iconColor = NSColor.white.withAlphaComponent(0.9)
-            NSLog("🎨 Dark background detected (luminance: \(luminance)) → Using LIGHT icons")
+            NSLog("🎨 Dark toolbar (luminance: \(luminance)) → Light icons")
         } else {
-            // Dark icons for light backgrounds
             iconColor = NSColor.black.withAlphaComponent(0.7)
-            NSLog("🎨 Light background detected (luminance: \(luminance)) → Using DARK icons")
+            NSLog("🎨 Light toolbar (luminance: \(luminance)) → Dark icons")
         }
         
         // Apply to navigation buttons
@@ -1976,9 +1973,30 @@ extension WebViewController {
         forwardButton.contentTintColor = iconColor
         reloadButton.contentTintColor = iconColor
         newBubbleButton.contentTintColor = iconColor
+        lockIcon.contentTintColor = iconColor
         
-        // Address bar text: Use SAME color as icons (icons are always correct!)
-        urlField.textColor = iconColor
+        // URL field styling: Create contrasting background for readability
+        // The URL field needs its own background that works regardless of toolbar color
+        let urlFieldBackgroundColor: NSColor
+        let urlFieldTextColor: NSColor
+        let urlFieldBorderColor: NSColor
+        
+        if isDarkToolbar {
+            // Dark toolbar → Slightly lighter URL field for subtle contrast
+            urlFieldBackgroundColor = NSColor.white.withAlphaComponent(0.1)
+            urlFieldTextColor = NSColor.white.withAlphaComponent(0.9)
+            urlFieldBorderColor = NSColor.white.withAlphaComponent(0.2)
+        } else {
+            // Light toolbar → Darker URL field for contrast
+            urlFieldBackgroundColor = NSColor.black.withAlphaComponent(0.08)
+            urlFieldTextColor = NSColor.black.withAlphaComponent(0.85)
+            urlFieldBorderColor = NSColor.black.withAlphaComponent(0.15)
+        }
+        
+        // Apply URL field styling
+        urlField.backgroundColor = urlFieldBackgroundColor
+        urlField.textColor = urlFieldTextColor
+        urlField.layer?.borderColor = urlFieldBorderColor.cgColor
         
         // Create placeholder with proper indentation if lock icon is visible
         let paragraphStyle = NSMutableParagraphStyle()
@@ -1990,21 +2008,11 @@ extension WebViewController {
         urlField.placeholderAttributedString = NSAttributedString(
             string: "Search or enter website",
             attributes: [
-                .foregroundColor: iconColor.withAlphaComponent(0.5),
+                .foregroundColor: urlFieldTextColor.withAlphaComponent(0.5),
                 .font: NSFont.systemFont(ofSize: 13),
                 .paragraphStyle: paragraphStyle
             ]
         )
-        
-        // Update URL field border based on toolbar background (for contrast with toolbar)
-        if isDarkBackground {
-            urlField.layer?.borderColor = NSColor.white.withAlphaComponent(0.2).cgColor
-        } else {
-            urlField.layer?.borderColor = NSColor.black.withAlphaComponent(0.15).cgColor
-        }
-        
-        // Update lock icon color to match icons
-        lockIcon.contentTintColor = iconColor
         
         NSLog("✅ UI elements adapted for accessibility")
     }
@@ -2046,9 +2054,12 @@ extension WebViewController {
         forwardButton.contentTintColor = defaultIconColor
         reloadButton.contentTintColor = defaultIconColor
         newBubbleButton.contentTintColor = defaultIconColor
+        lockIcon.contentTintColor = defaultIconColor
         
-        // Reset URL field text - use SAME color as icons
-        urlField.textColor = defaultIconColor
+        // Reset URL field styling to default
+        urlField.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.3)
+        urlField.textColor = NSColor.labelColor
+        urlField.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.3).cgColor
         
         // Create placeholder with proper indentation if lock icon is visible
         let paragraphStyle = NSMutableParagraphStyle()
@@ -2060,17 +2071,11 @@ extension WebViewController {
         urlField.placeholderAttributedString = NSAttributedString(
             string: "Search or enter website",
             attributes: [
-                .foregroundColor: defaultIconColor.withAlphaComponent(0.5),
+                .foregroundColor: NSColor.placeholderTextColor,
                 .font: NSFont.systemFont(ofSize: 13),
                 .paragraphStyle: paragraphStyle
             ]
         )
-        
-        // Reset URL field border
-        urlField.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.3).cgColor
-        
-        // Reset lock icon color
-        lockIcon.contentTintColor = defaultIconColor
         
         NSLog("✅ Default icon colors restored")
     }

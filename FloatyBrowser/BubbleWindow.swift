@@ -330,16 +330,8 @@ class BubbleWindow: NSPanel {
     private func stopIdleAnimation() {
         idleAnimationTimer?.invalidate()
         idleAnimationTimer = nil
-        
-        // Animate back to home position when stopping idle animation
-        if let home = idleHomePosition {
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.3
-                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                animator().setFrameOrigin(home)
-            }
-        }
         idleHomePosition = nil
+        // Note: Don't animate back to home position - can cause crashes during window close
     }
     
     private func performIdleAnimation() {

@@ -642,9 +642,10 @@ class WebViewController: NSViewController {
         // Allow keyboard events in WKWebView
         webView.allowsBackForwardNavigationGestures = true
         
-        // Set custom user agent to identify as modern Chrome on macOS for maximum compatibility
-        // This ensures sites like WhatsApp Web work properly
-        webView.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        // Set custom user agent to identify as Safari on macOS
+        // Using Safari UA since WKWebView IS the Safari engine - more authentic than pretending to be Chrome
+        // This may help with sites like Google that detect embedded WebViews
+        webView.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15"
         
         // Add progress indicator (position it just below the toolbar)
         progressIndicator = NSProgressIndicator()
@@ -1096,10 +1097,9 @@ extension WebViewController: NSTextFieldDelegate {
 
 extension WebViewController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        // Note: Popup/new window requests are handled in WKUIDelegate.createWebView
-        // OAuth is handled by ASWebAuthenticationSession
-        
-        // Allow all normal navigation
+        // Allow all navigation
+        // Note: Google sign-in is blocked by Google's security policy for embedded WebViews.
+        // This is a known limitation - Google requires sign-in via Safari or Chrome.
         decisionHandler(.allow)
     }
     
@@ -1292,72 +1292,74 @@ extension WebViewController: WKUIDelegate {
     
     /// Detects if a URL is an OAuth/authentication URL
     /// OAuth URLs are handled by ASWebAuthenticationSession
+    ///
+    /// Uses a hybrid approach to minimize false positives:
+    /// 1. Known OAuth provider domains → always detected
+    /// 2. Unknown domains → require BOTH OAuth path AND multiple query params
+    /// 3. Generic paths like /login, /signin are NOT treated as OAuth (too many false positives)
     private func isOAuthURL(_ url: URL) -> Bool {
         let urlString = url.absoluteString.lowercased()
         let host = url.host?.lowercased() ?? ""
         let path = url.path.lowercased()
+        let query = url.query?.lowercased() ?? ""
         
-        // Well-known OAuth providers (by domain) - ALL OAuth types
+        // LAYER 1: Well-known OAuth provider domains - always trust these
+        // These are specific OAuth endpoints, not generic login pages
         let oauthProviderDomains = [
             "accounts.google.com",           // Google OAuth & GSI
-            "facebook.com",                  // Facebook OAuth & SDK
             "login.microsoftonline.com",     // Microsoft OAuth
             "appleid.apple.com",             // Apple Sign In
-            "twitter.com/oauth",             // Twitter OAuth (legacy)
-            "twitter.com/i/oauth",           // Twitter OAuth (new)
-            "x.com/oauth",                   // X (Twitter) OAuth
-            "github.com/login/oauth",        // GitHub OAuth
+            "api.twitter.com/oauth",         // Twitter OAuth API
+            "twitter.com/i/oauth2",          // Twitter OAuth2
+            "x.com/i/oauth2",                // X (Twitter) OAuth2
+            "github.com/login/oauth",        // GitHub OAuth (specific path)
             "linkedin.com/oauth",            // LinkedIn OAuth
             "discord.com/oauth2",            // Discord OAuth
+            "discord.com/api/oauth2",        // Discord OAuth API
             "slack.com/oauth",               // Slack OAuth
+            "accounts.spotify.com",          // Spotify OAuth
+            "www.dropbox.com/oauth2",        // Dropbox OAuth
         ]
         
-        // Check if host matches known OAuth providers
         for domain in oauthProviderDomains {
-            if host.contains(domain) || urlString.contains(domain) {
+            if urlString.contains(domain) {
+                print("🔐 OAuth detected: known provider domain - \(domain)")
                 return true
             }
         }
         
-        // OAuth path patterns
-        let oauthPathPatterns = [
-            "/oauth",
-            "/oauth2",
-            "/oauth/authorize",
-            "/oauth/authentication",
-            "/auth/signin",
-            "/auth/login",
-            "/signin",
-            "/login",
-            "/sso",
-            "/saml",
-            "/authorize",
-        ]
-        
-        for pattern in oauthPathPatterns {
-            if path.contains(pattern) {
-                return true
-            }
-        }
-        
-        // OAuth query parameters (strong indicators)
-        if let query = url.query?.lowercased() {
-            let oauthQueryPatterns = [
-                "response_type=code",
-                "response_type=token",
-                "client_id=",
-                "redirect_uri=",
-                "scope=",
-                "oauth",
-            ]
-            
-            for pattern in oauthQueryPatterns {
-                if query.contains(pattern) {
+        // LAYER 2: Facebook special handling - only OAuth endpoints, not regular facebook.com
+        if host.contains("facebook.com") {
+            let facebookOAuthPaths = ["/v", "/dialog/oauth", "/login.php"]
+            for oauthPath in facebookOAuthPaths {
+                if path.contains(oauthPath) && query.contains("client_id") {
+                    print("🔐 OAuth detected: Facebook OAuth endpoint")
                     return true
                 }
             }
         }
         
+        // LAYER 3: For unknown domains, require STRONG OAuth indicators
+        // Must have BOTH: OAuth-specific path AND required query parameters
+        let hasOAuthPath = path.contains("/oauth") || path.contains("/oauth2")
+        let hasClientId = query.contains("client_id=")
+        let hasRedirectUri = query.contains("redirect_uri=")
+        let hasResponseType = query.contains("response_type=")
+        
+        // Require OAuth path + at least client_id + redirect_uri (standard OAuth spec)
+        if hasOAuthPath && hasClientId && hasRedirectUri {
+            print("🔐 OAuth detected: OAuth path with required query params")
+            return true
+        }
+        
+        // Also detect if we have response_type (code/token) with client_id - definitive OAuth
+        if hasResponseType && hasClientId {
+            print("🔐 OAuth detected: response_type with client_id")
+            return true
+        }
+        
+        // NOT detected as OAuth - will open as normal popup
+        // This includes: /login, /signin, /authorize (without OAuth query params)
         return false
     }
     

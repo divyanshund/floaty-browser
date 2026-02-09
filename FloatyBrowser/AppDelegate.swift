@@ -74,7 +74,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Mark as complete
         UserDefaults.standard.set(true, forKey: hasCompletedOnboardingKey)
-        UserDefaults.standard.synchronize()
         
         // Start normal app
         startNormalApp()

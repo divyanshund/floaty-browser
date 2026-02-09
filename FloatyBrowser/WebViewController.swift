@@ -298,6 +298,11 @@ class WebViewController: NSViewController {
     // Pending URL to load once webView is ready
     private var pendingURL: String?
     
+    // Static regex for parsing RGB/RGBA colors (compiled once, reused across all instances)
+    private static let rgbColorRegex: NSRegularExpression? = {
+        try? NSRegularExpression(pattern: #"rgba?\((\d+),\s*(\d+),\s*(\d+)"#)
+    }()
+    
     // Use shared configuration for session sharing across all bubbles
     private lazy var webConfiguration: WKWebViewConfiguration = {
         // If external config provided (e.g., for popups), we MUST use the exact same object
@@ -837,14 +842,9 @@ class WebViewController: NSViewController {
         }
     }
     
-    func suspendWebView() {
-        // Suspend rendering to save resources when collapsed
-        _webView?.evaluateJavaScript("document.hidden = true;", completionHandler: nil)
-    }
-    
-    func resumeWebView() {
-        _webView?.evaluateJavaScript("document.hidden = false;", completionHandler: nil)
-    }
+    // Note: suspendWebView/resumeWebView were removed - document.hidden is read-only
+    // and these methods were never called. WebView lifecycle is handled naturally
+    // by window visibility (orderOut/orderFront).
     
     private func fetchFavicon() {
         NSLog("🎨 FloatyBrowser: Attempting to fetch favicon")
@@ -1842,8 +1842,8 @@ extension WebViewController {
         // Handle rgb() or rgba()
         if trimmed.hasPrefix("rgb") {
             NSLog("🔍 Detected rgb/rgba format")
-            let pattern = #"rgba?\((\d+),\s*(\d+),\s*(\d+)"#
-            if let regex = try? NSRegularExpression(pattern: pattern),
+            // Use pre-compiled static regex for better performance
+            if let regex = Self.rgbColorRegex,
                let match = regex.firstMatch(in: trimmed, range: NSRange(trimmed.startIndex..., in: trimmed)) {
                 
                 let r = (trimmed as NSString).substring(with: match.range(at: 1))

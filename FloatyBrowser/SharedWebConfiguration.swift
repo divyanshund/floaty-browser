@@ -65,8 +65,8 @@ final class SharedWebConfiguration {
             config.preferences.javaScriptEnabled = true
         }
         
-        // User agent - identify as modern Safari on macOS
-        config.applicationNameForUserAgent = "Version/17.0 Safari/605.1.15"
+        // Note: User agent is set on WKWebView instance in WebViewController
+        // (customUserAgent overrides applicationNameForUserAgent)
         
         print("🔧 SharedWebConfiguration: Created new configuration with shared resources")
         

@@ -307,8 +307,8 @@ class WindowManager: NSObject {
         
         print("ℹ️  Found \(savedStates.count) saved bubble(s)")
         for state in savedStates {
-            // Always position bubbles on the right side, ignoring saved positions
-            let validatedPosition = calculateNewBubblePosition()
+            // Use saved position if it's still on a valid screen, otherwise recalculate
+            let validatedPosition = validateSavedPosition(state.position, screenIndex: state.screenIndex)
             let bubble = BubbleWindow(id: state.id, url: state.url, position: validatedPosition)
             bubble.bubbleDelegate = self
             bubbles[state.id] = bubble
@@ -322,6 +322,44 @@ class WindowManager: NSObject {
         }
         
         print("✅ Restored \(bubbles.count) bubble(s)")
+    }
+    
+    /// Validates a saved position is still on-screen, returns fallback if not
+    private func validateSavedPosition(_ position: CGPoint, screenIndex: Int) -> CGPoint {
+        let bubbleSize: CGFloat = 60
+        let screens = NSScreen.screens
+        
+        // Try to use the original screen if it still exists
+        let targetScreen: NSScreen?
+        if screenIndex < screens.count {
+            targetScreen = screens[screenIndex]
+        } else {
+            targetScreen = NSScreen.main ?? screens.first
+        }
+        
+        guard let screen = targetScreen else {
+            // No screens available, use default position
+            return calculateNewBubblePosition()
+        }
+        
+        let frame = screen.visibleFrame
+        
+        // Check if the saved position is within the screen bounds (with some margin)
+        let isOnScreen = position.x >= frame.minX - bubbleSize &&
+                         position.x <= frame.maxX &&
+                         position.y >= frame.minY - bubbleSize &&
+                         position.y <= frame.maxY
+        
+        if isOnScreen {
+            // Clamp to ensure bubble is fully visible
+            let clampedX = max(frame.minX, min(position.x, frame.maxX - bubbleSize))
+            let clampedY = max(frame.minY, min(position.y, frame.maxY - bubbleSize))
+            return CGPoint(x: clampedX, y: clampedY)
+        } else {
+            // Position is off-screen (e.g., monitor was unplugged), recalculate
+            print("   ⚠️ Saved position off-screen, recalculating...")
+            return calculateNewBubblePosition()
+        }
     }
     
     @objc private func applicationWillTerminate() {

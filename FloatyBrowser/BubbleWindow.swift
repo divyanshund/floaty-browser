@@ -32,7 +32,6 @@ enum BubbleAppearance: String, CaseIterable {
     
     func saveAsCurrent() {
         UserDefaults.standard.set(self.rawValue, forKey: "bubbleAppearance")
-        UserDefaults.standard.synchronize()
         
         // Post notification to update all bubbles
         NotificationCenter.default.post(name: NSNotification.Name("BubbleAppearanceChanged"), object: nil)
@@ -85,6 +84,7 @@ class BubbleWindow: NSPanel {
     private var bubbleView: BubbleView!
     private var idleAnimationTimer: Timer?
     private var faviconImage: NSImage?
+    private var idleHomePosition: CGPoint?  // Anchor point for idle animation to prevent drift
     
     weak var bubbleDelegate: BubbleWindowDelegate?
     
@@ -207,9 +207,10 @@ class BubbleWindow: NSPanel {
             print("🖱️ FloatyBrowser: Expanding bubble")
             bubbleDelegate?.bubbleWindowDidRequestExpand(self)
         } else {
-            // Save position after drag
+            // Save position after drag and update home position for idle animation
             print("🖱️ FloatyBrowser: Saving bubble position after drag")
             bubbleDelegate?.bubbleWindowDidMove(self)
+            idleHomePosition = frame.origin  // Update anchor point after drag
         }
         
         isDragging = false
@@ -317,6 +318,10 @@ class BubbleWindow: NSPanel {
     private func startIdleAnimation() {
         stopIdleAnimation()
         
+        // Store the current position as the "home" anchor point
+        // The bubble will wobble around this point instead of drifting away
+        idleHomePosition = frame.origin
+        
         idleAnimationTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
             self?.performIdleAnimation()
         }
@@ -325,26 +330,44 @@ class BubbleWindow: NSPanel {
     private func stopIdleAnimation() {
         idleAnimationTimer?.invalidate()
         idleAnimationTimer = nil
+        
+        // Animate back to home position when stopping idle animation
+        if let home = idleHomePosition {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.3
+                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                animator().setFrameOrigin(home)
+            }
+        }
+        idleHomePosition = nil
     }
     
     private func performIdleAnimation() {
+        // Use home position as anchor to prevent cumulative drift
+        guard let home = idleHomePosition else { return }
+        
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 2.0
             context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
             
+            // Wobble around the home position, not the current position
             let randomOffset = CGPoint(
                 x: CGFloat.random(in: -5...5),
                 y: CGFloat.random(in: -5...5)
             )
             
-            let currentOrigin = frame.origin
             let newOrigin = CGPoint(
-                x: currentOrigin.x + randomOffset.x,
-                y: currentOrigin.y + randomOffset.y
+                x: home.x + randomOffset.x,
+                y: home.y + randomOffset.y
             )
             
             animator().setFrameOrigin(newOrigin)
         }
+    }
+    
+    /// Update home position after user drags the bubble
+    func updateHomePosition() {
+        idleHomePosition = frame.origin
     }
     
     func updateURL(_ url: String) {

@@ -99,7 +99,6 @@ class PanelWindow: NSPanel {
         
         setupWindow()
         setupWebView(url: url, configuration: configuration)
-        setupCloseButton()
         setupCustomControls()
     }
     
@@ -300,11 +299,6 @@ class PanelWindow: NSPanel {
         button.layer?.masksToBounds = true
     }
     
-    private func setupCloseButton() {
-        // No longer needed - close button is now in the toolbar
-        // Keeping this method for compatibility but it does nothing
-    }
-    
     // MARK: - Custom Control Actions
     
     @objc private func customCloseClicked() {
@@ -348,11 +342,6 @@ class PanelWindow: NSPanel {
     
     @objc private func customMinimizeClicked() {
         NSLog("🟡 Custom minimize to bubble button clicked")
-        panelDelegate?.panelWindowDidRequestCollapse(self)
-    }
-    
-    @objc private func closeButtonClicked() {
-        // Deprecated - collapse is now handled via toolbar button
         panelDelegate?.panelWindowDidRequestCollapse(self)
     }
     

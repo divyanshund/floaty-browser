@@ -172,7 +172,6 @@ class AppearancePreferencesViewController: NSViewController {
     @objc private func themeColorsToggled() {
         let isEnabled = themeColorsCheckbox.state == .on
         UserDefaults.standard.set(isEnabled, forKey: useThemeColorsKey)
-        UserDefaults.standard.synchronize()
         
         NSLog("💾 Theme colors \(isEnabled ? "enabled" : "disabled")")
         
@@ -290,7 +289,6 @@ class SearchPreferencesViewController: NSViewController {
         }
         
         UserDefaults.standard.set(engine.rawValue, forKey: searchEngineKey)
-        UserDefaults.standard.synchronize()
         updatePreview(for: engine)
         
         NSLog("💾 Saved search engine: \(engine.rawValue)")
@@ -368,7 +366,6 @@ class GeneralPreferencesViewController: NSViewController {
     @objc private func hapticsToggled() {
         let isEnabled = hapticsCheckbox.state == .on
         UserDefaults.standard.set(isEnabled, forKey: hapticsEnabledKey)
-        UserDefaults.standard.synchronize()
         
         NSLog("💾 Haptics \(isEnabled ? "enabled" : "disabled")")
     }

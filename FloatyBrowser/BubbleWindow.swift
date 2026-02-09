@@ -607,7 +607,8 @@ class BubbleView: NSView {
     }
     
     @objc private func closeButtonClicked() {
-        bubbleWindow?.bubbleDelegate?.bubbleWindowDidRequestClose(bubbleWindow!)
+        guard let window = bubbleWindow else { return }
+        window.bubbleDelegate?.bubbleWindowDidRequestClose(window)
     }
     
     func setHovered(_ hovered: Bool) {
@@ -683,6 +684,11 @@ class BubbleView: NSView {
         iconImageView.image = displayImage
         iconImageView.isHidden = false
         iconLabel.isHidden = true
+    }
+    
+    deinit {
+        // CRITICAL: Remove NotificationCenter observer to prevent crashes
+        NotificationCenter.default.removeObserver(self)
     }
 }
 

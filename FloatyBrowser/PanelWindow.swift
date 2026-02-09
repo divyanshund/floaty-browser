@@ -138,8 +138,8 @@ class PanelWindow: NSPanel {
         // Set self as delegate to intercept close button
         delegate = self
         
-        // Make sure the window becomes key to receive keyboard events
-        makeKeyAndOrderFront(nil)
+        // NOTE: Don't call makeKeyAndOrderFront here
+        // WindowManager calls it after panel is fully initialized
     }
     
     // MARK: - Window Responder
@@ -169,8 +169,9 @@ class PanelWindow: NSPanel {
         webViewController = WebViewController(configuration: configuration)
         webViewController.delegate = self
         
-        // Set up the content view
-        let containerView = NSView(frame: frame)
+        // Set up the content view - use contentLayoutRect for proper sizing
+        let contentRect = contentLayoutRect
+        let containerView = NSView(frame: NSRect(origin: .zero, size: contentRect.size))
         containerView.autoresizingMask = [.width, .height]
         
         webViewController.view.frame = containerView.bounds
@@ -179,8 +180,14 @@ class PanelWindow: NSPanel {
         
         contentView = containerView
         
-        // Load URL
-        webViewController.loadURL(url)
+        // CRITICAL: Defer URL loading with a small delay
+        // WKWebView needs time to fully initialize after being added to view hierarchy
+        // Create explicit copy of URL string to ensure it's retained in the closure
+        let urlToLoad = String(url)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self, urlToLoad] in
+            guard let self = self else { return }
+            self.webViewController.loadURL(urlToLoad)
+        }
     }
     
     private func setupCustomControls() {
@@ -551,10 +558,9 @@ class PanelWindow: NSPanel {
     
     // Animate appearance (for new panels only)
     func animateIn() {
-        alphaValue = 0
+        let originalFrame = frame
         let scale: CGFloat = 0.3
         
-        let originalFrame = frame
         let scaledFrame = NSRect(
             x: originalFrame.midX - (originalFrame.width * scale) / 2,
             y: originalFrame.midY - (originalFrame.height * scale) / 2,
@@ -562,7 +568,18 @@ class PanelWindow: NSPanel {
             height: originalFrame.height * scale
         )
         
+        // Start invisible and scaled down
+        alphaValue = 0
         setFrame(scaledFrame, display: true)
+        
+        // Safety: ensure window becomes visible even if animation fails
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            guard let self = self else { return }
+            if self.alphaValue < 1.0 {
+                self.alphaValue = 1.0
+                self.setFrame(originalFrame, display: true)
+            }
+        }
         
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.3
@@ -572,6 +589,7 @@ class PanelWindow: NSPanel {
             animator().setFrame(originalFrame, display: true)
         }, completionHandler: { [weak self] in
             // Animation complete - make sure we're key window
+            self?.alphaValue = 1.0  // Ensure visibility
             self?.makeKeyAndOrderFront(nil)
             self?.makeFirstResponder(self?.webViewController.view)
         })

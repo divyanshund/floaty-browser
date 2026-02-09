@@ -85,11 +85,18 @@ class WindowManager: NSObject {
             return
         }
         
-        NSLog("🆕 Creating new panel for bubble")
-        let panel = PanelWindow(id: bubble.bubbleId, url: bubble.currentURL, nearBubble: bubble.frame)
+        print("Creating new panel for bubble")
+        
+        // CRITICAL: Create explicit copy of URL and frame BEFORE any UI operations
+        // This prevents potential memory issues with string bridging
+        let urlToLoad = String(bubble.currentURL)
+        let bubbleFrame = bubble.frame
+        let bubbleId = bubble.bubbleId
+        
+        let panel = PanelWindow(id: bubbleId, url: urlToLoad, nearBubble: bubbleFrame)
         panel.panelDelegate = self
         
-        panels[bubble.bubbleId] = panel
+        panels[bubbleId] = panel
         
         // Hide bubble while panel is showing
         bubble.orderOut(nil)
@@ -97,22 +104,26 @@ class WindowManager: NSObject {
         panel.makeKeyAndOrderFront(nil)
         panel.animateIn()  // Only animate for new panels
         
-        print("✅ Expanded bubble to new panel")
+        print("Expanded bubble to new panel")
     }
     
     func createPanelForPopup(url: String, configuration: WKWebViewConfiguration) -> PanelWindow {
         let id = UUID()
         
         // Calculate center position for popup panel
-        guard let screen = NSScreen.main else {
-            fatalError("No main screen available")
-        }
-        
         let panelSize = NSSize(width: 420, height: 600)
-        let screenFrame = screen.visibleFrame
-        let centerX = screenFrame.midX - (panelSize.width / 2)
-        let centerY = screenFrame.midY - (panelSize.height / 2)
-        let centerPosition = NSRect(origin: NSPoint(x: centerX, y: centerY), size: panelSize)
+        let centerPosition: NSRect
+        
+        if let screen = NSScreen.main ?? NSScreen.screens.first {
+            let screenFrame = screen.visibleFrame
+            let centerX = screenFrame.midX - (panelSize.width / 2)
+            let centerY = screenFrame.midY - (panelSize.height / 2)
+            centerPosition = NSRect(origin: NSPoint(x: centerX, y: centerY), size: panelSize)
+        } else {
+            // Fallback position if no screens available (extremely rare)
+            NSLog("⚠️ No screens available, using default position")
+            centerPosition = NSRect(origin: NSPoint(x: 100, y: 100), size: panelSize)
+        }
         
         NSLog("🪟 Creating popup panel at center of screen")
         
@@ -127,7 +138,7 @@ class WindowManager: NSObject {
         panel.makeKeyAndOrderFront(nil)
         panel.animateIn()
         
-        NSLog("✅ Created popup panel (no bubble) - ID: \(id.uuidString)")
+        print("Created popup panel (no bubble) - ID: \(id.uuidString)")
         
         return panel
     }
@@ -153,7 +164,7 @@ class WindowManager: NSObject {
             
             // Fetch favicon for the new bubble
             fetchFaviconForBubble(newBubble)
-            NSLog("🟢 Created bubble for popup at position: \(position)")
+            print("Created bubble for popup at position: \(position)")
         }
         
         guard let bubble = bubble else {
@@ -260,7 +271,7 @@ class WindowManager: NSObject {
     func createDefaultBubble() {
         NSLog("🫧 FloatyBrowser: Creating default bubble")
         let bubble = createBubble(url: "https://www.google.com")
-        NSLog("🫧 FloatyBrowser: Default bubble created - isVisible: \(bubble.isVisible), frame: \(bubble.frame)")
+        print("Default bubble created - isVisible: \(bubble.isVisible), frame: \(bubble.frame)")
     }
     
     // MARK: - Persistence
@@ -443,7 +454,7 @@ extension WindowManager: PanelWindowDelegate {
     }
     
     func panelWindow(_ panel: PanelWindow, createPopupPanelFor url: URL, configuration: WKWebViewConfiguration) -> WKWebView? {
-        NSLog("🪟 WindowManager: Creating popup panel for \(url.absoluteString)")
+        print("WindowManager: Creating popup panel for \(url.absoluteString)")
         
         // Create a new panel for the popup (using current mouse position or center of screen)
         let popupPanel = createPanelForPopup(url: url.absoluteString, configuration: configuration)

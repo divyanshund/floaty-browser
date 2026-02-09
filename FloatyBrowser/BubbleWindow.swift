@@ -172,7 +172,7 @@ class BubbleWindow: NSPanel {
     }
     
     override func mouseDown(with event: NSEvent) {
-        NSLog("🖱️ FloatyBrowser: Mouse down in bubble")
+        print("🖱️ FloatyBrowser: Mouse down in bubble")
         
         // Ensure we're processing the event
         let location = event.locationInWindow
@@ -188,7 +188,7 @@ class BubbleWindow: NSPanel {
     
     override func mouseDragged(with event: NSEvent) {
         isDragging = true // Mark as dragging when mouse actually moves
-        NSLog("🖱️ FloatyBrowser: Dragging bubble")
+        print("🖱️ FloatyBrowser: Dragging bubble")
         
         let screenLocation = NSEvent.mouseLocation
         let newOrigin = CGPoint(
@@ -200,15 +200,15 @@ class BubbleWindow: NSPanel {
     }
     
     override func mouseUp(with event: NSEvent) {
-        NSLog("🖱️ FloatyBrowser: Bubble clicked - isDragging: \(isDragging)")
+        print("🖱️ FloatyBrowser: Bubble clicked - isDragging: \(isDragging)")
         
         if !isDragging {
             // Single click without drag = expand
-            NSLog("🖱️ FloatyBrowser: Expanding bubble")
+            print("🖱️ FloatyBrowser: Expanding bubble")
             bubbleDelegate?.bubbleWindowDidRequestExpand(self)
         } else {
             // Save position after drag
-            NSLog("🖱️ FloatyBrowser: Saving bubble position after drag")
+            print("🖱️ FloatyBrowser: Saving bubble position after drag")
             bubbleDelegate?.bubbleWindowDidMove(self)
         }
         

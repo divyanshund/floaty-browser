@@ -96,29 +96,5 @@ class PersistenceManager {
         try? FileManager.default.removeItem(at: stateFileURL)
         print("🗑️ Cleared saved state")
     }
-    
-    /// Validate and adjust position to ensure bubble is on screen
-    func validatePosition(_ position: CGPoint, screenIndex: Int) -> CGPoint {
-        let screens = NSScreen.screens
-        guard screenIndex < screens.count else {
-            // Screen no longer exists, use main screen
-            return validatePosition(position, for: NSScreen.main ?? screens.first!)
-        }
-        
-        return validatePosition(position, for: screens[screenIndex])
-    }
-    
-    private func validatePosition(_ position: CGPoint, for screen: NSScreen) -> CGPoint {
-        let bubbleSize: CGFloat = 60
-        let frame = screen.visibleFrame
-        
-        var validatedPosition = position
-        
-        // Ensure bubble is within screen bounds
-        validatedPosition.x = max(frame.minX, min(position.x, frame.maxX - bubbleSize))
-        validatedPosition.y = max(frame.minY, min(position.y, frame.maxY - bubbleSize))
-        
-        return validatedPosition
-    }
 }
 

@@ -19,7 +19,7 @@ final class SharedWebConfiguration {
     static let shared = SharedWebConfiguration()
     
     private init() {
-        NSLog("🔧 SharedWebConfiguration: Initialized shared WebKit resources")
+        print("🔧 SharedWebConfiguration: Initialized shared WebKit resources")
     }
     
     // MARK: - Shared Resources
@@ -68,7 +68,7 @@ final class SharedWebConfiguration {
         // User agent - identify as modern Safari on macOS
         config.applicationNameForUserAgent = "Version/17.0 Safari/605.1.15"
         
-        NSLog("🔧 SharedWebConfiguration: Created new configuration with shared resources")
+        print("🔧 SharedWebConfiguration: Created new configuration with shared resources")
         
         return config
     }
@@ -78,11 +78,11 @@ final class SharedWebConfiguration {
     /// Clears all cookies and website data (for logout/reset).
     /// Use this when user wants to "clear all data".
     func clearAllData(completion: @escaping () -> Void) {
-        NSLog("🗑️ SharedWebConfiguration: Clearing all website data...")
+        print("🗑️ SharedWebConfiguration: Clearing all website data...")
         
         let dataTypes = WKWebsiteDataStore.allWebsiteDataTypes()
         dataStore.removeData(ofTypes: dataTypes, modifiedSince: .distantPast) {
-            NSLog("✅ SharedWebConfiguration: All website data cleared")
+            print("✅ SharedWebConfiguration: All website data cleared")
             completion()
         }
     }
@@ -90,7 +90,7 @@ final class SharedWebConfiguration {
     /// Gets current cookie count (for debugging/info).
     func getCookieCount(completion: @escaping (Int) -> Void) {
         dataStore.httpCookieStore.getAllCookies { cookies in
-            NSLog("🍪 SharedWebConfiguration: Current cookie count: \(cookies.count)")
+            print("🍪 SharedWebConfiguration: Current cookie count: \(cookies.count)")
             completion(cookies.count)
         }
     }

@@ -13,6 +13,7 @@ class WindowManager: NSObject {
     static let shared = WindowManager()
     
     private var bubbles: [UUID: BubbleWindow] = [:]
+    private var bubbleOrder: [UUID] = []  // Maintains stable insertion order for consistent iteration
     private var panels: [UUID: PanelWindow] = [:]
     
     private var isInitialized = false
@@ -51,6 +52,7 @@ class WindowManager: NSObject {
         bubble.bubbleDelegate = self
         
         bubbles[id] = bubble
+        bubbleOrder.append(id)  // Maintain insertion order
         
         // Ensure bubble is fully visible and ready for interaction
         // Using orderFrontRegardless ensures it appears even if app isn't active
@@ -160,6 +162,7 @@ class WindowManager: NSObject {
             let newBubble = BubbleWindow(id: panel.panelId, url: url, position: position)
             newBubble.bubbleDelegate = self
             bubbles[panel.panelId] = newBubble
+            bubbleOrder.append(panel.panelId)  // Maintain insertion order
             bubble = newBubble
             
             // Fetch favicon for the new bubble
@@ -216,6 +219,7 @@ class WindowManager: NSObject {
         
         NSLog("🗑️ Removing bubble from dictionary")
         bubbles.removeValue(forKey: bubbleId)
+        bubbleOrder.removeAll { $0 == bubbleId }  // Remove from order tracking
         
         NSLog("🗑️ Ordering bubble out and closing window")
         bubble.orderOut(nil)  // Remove from window list first
@@ -308,6 +312,7 @@ class WindowManager: NSObject {
             let bubble = BubbleWindow(id: state.id, url: state.url, position: validatedPosition)
             bubble.bubbleDelegate = self
             bubbles[state.id] = bubble
+            bubbleOrder.append(state.id)  // Maintain insertion order
             bubble.orderFrontRegardless()
             bubble.makeKeyAndOrderFront(nil)
             print("   • Restored bubble at \(validatedPosition)")
@@ -370,13 +375,15 @@ class WindowManager: NSObject {
     }
     
     func getAllBubbleURLs() -> [String] {
-        return bubbles.values.map { $0.currentURL }
+        // Use bubbleOrder to ensure consistent ordering across method calls
+        return bubbleOrder.compactMap { bubbles[$0]?.currentURL }
     }
     
     func expandBubbleAtIndex(_ index: Int) {
-        let bubbleArray = Array(bubbles.values)
-        guard index < bubbleArray.count else { return }
-        expandBubble(bubbleArray[index])
+        // Use bubbleOrder to ensure consistent ordering matches getAllBubbleURLs()
+        guard index < bubbleOrder.count,
+              let bubble = bubbles[bubbleOrder[index]] else { return }
+        expandBubble(bubble)
     }
     
     deinit {

@@ -300,9 +300,13 @@ class WebViewController: NSViewController {
     
     // Use shared configuration for session sharing across all bubbles
     private lazy var webConfiguration: WKWebViewConfiguration = {
-        // If external config provided (e.g., for popups), use it
+        // If external config provided (e.g., for popups), we MUST use the exact same object
+        // WebKit enforces that the returned WKWebView uses the identical configuration passed
+        // to createWebViewWith - creating a copy will cause NSInternalInconsistencyException
         if let external = externalConfiguration {
             // Add viewport script to external config
+            // Note: This does modify the passed config, but it's created specifically for this popup
+            // and the viewport script is benign (just ensures proper scaling)
             let viewportScript = WKUserScript(
                 source: """
                 var meta = document.createElement('meta');
@@ -314,6 +318,8 @@ class WebViewController: NSViewController {
                 forMainFrameOnly: true
             )
             external.userContentController.addUserScript(viewportScript)
+            
+            print("✅ WebViewController: Using external config for popup (required by WebKit)")
             return external
         }
         

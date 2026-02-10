@@ -109,7 +109,7 @@ class WindowManager: NSObject {
         print("Expanded bubble to new panel")
     }
     
-    func createPanelForPopup(url: String, configuration: WKWebViewConfiguration) -> PanelWindow {
+    func createPanelForPopup(url: String?, configuration: WKWebViewConfiguration) -> PanelWindow {
         let id = UUID()
         
         // Calculate center position for popup panel
@@ -127,10 +127,11 @@ class WindowManager: NSObject {
             centerPosition = NSRect(origin: NSPoint(x: 100, y: 100), size: panelSize)
         }
         
-        NSLog("🪟 Creating popup panel at center of screen")
+        NSLog("🪟 Creating popup panel at center of screen for: \(url ?? "blank/nil URL")")
         
         // Create panel with external configuration (for popup integration)
-        let panel = PanelWindow(id: id, url: url, nearBubble: centerPosition, configuration: configuration)
+        // For nil URLs (blank popups), pass "about:blank" - WebKit will navigate it via JS
+        let panel = PanelWindow(id: id, url: url ?? "about:blank", nearBubble: centerPosition, configuration: configuration)
         panel.panelDelegate = self
         
         // Store panel (but no bubble - popups are standalone)
@@ -501,11 +502,12 @@ extension WindowManager: PanelWindowDelegate {
         }
     }
     
-    func panelWindow(_ panel: PanelWindow, createPopupPanelFor url: URL, configuration: WKWebViewConfiguration) -> WKWebView? {
-        print("WindowManager: Creating popup panel for \(url.absoluteString)")
+    func panelWindow(_ panel: PanelWindow, createPopupPanelFor url: URL?, configuration: WKWebViewConfiguration) -> WKWebView? {
+        print("WindowManager: Creating popup panel for \(url?.absoluteString ?? "blank/nil URL")")
         
         // Create a new panel for the popup (using current mouse position or center of screen)
-        let popupPanel = createPanelForPopup(url: url.absoluteString, configuration: configuration)
+        // Pass the URL's absoluteString or nil for blank popups
+        let popupPanel = createPanelForPopup(url: url?.absoluteString, configuration: configuration)
         
         // CRITICAL: Ensure the webView is fully loaded before returning
         // Force view loading if not already done

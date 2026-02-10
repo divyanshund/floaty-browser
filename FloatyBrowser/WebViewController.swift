@@ -832,6 +832,20 @@ class WebViewController: NSViewController {
         
         guard !trimmedInput.isEmpty else { return }
         
+        // Safety: For popup windows, don't manually load URLs
+        // WebKit automatically navigates popups - manual loading causes race conditions
+        if isPopupWindow {
+            if let existingURL = _webView?.url, existingURL.absoluteString != "about:blank" {
+                NSLog("⚠️ Skipping manual loadURL for popup - WebKit already navigated to: \(existingURL)")
+                return
+            }
+            // Allow loading "about:blank" popups in case they need navigation
+            if trimmedInput == "about:blank" {
+                NSLog("⚠️ Skipping loadURL for about:blank popup - WebKit handles this")
+                return
+            }
+        }
+        
         // Check if webView is ready - if not, store URL for later
         guard let webView = _webView else {
             print("WebView not ready, storing URL for later")
@@ -1308,20 +1322,24 @@ extension WebViewController: WKNavigationDelegate {
 extension WebViewController: WKUIDelegate {
     /// Handle popup window requests (window.open(), target="_blank", etc.)
     /// OAuth popups use ASWebAuthenticationSession, other popups open in new panels
+    ///
+    /// IMPORTANT: Facebook and other sites often open blank popups first (nil URL or about:blank),
+    /// then navigate them via JavaScript. We must ALWAYS create a WKWebView for popup requests,
+    /// never return nil, or WebKit will crash when the JS tries to use the popup reference.
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-        guard let url = navigationAction.request.url else {
-            NSLog("⚠️ Popup request with no URL, ignoring")
-            return nil
-        }
+        // URL may be nil for blank popups - that's OK, we still create the webView
+        let url = navigationAction.request.url
         
-        // Check if this is OAuth - use ASWebAuthenticationSession for ALL OAuth
-        if isOAuthURL(url) {
+        // Only check OAuth if we have a URL - blank popups are never OAuth
+        if let url = url, isOAuthURL(url) {
             NSLog("🔐 OAuth detected - using ASWebAuthenticationSession")
             startOAuthWithAuthenticationSession(url: url, parentWebView: webView)
             return nil  // Don't create popup - ASWebAuthenticationSession handles it
         }
         
-        // For non-OAuth popups, create a new panel
+        // For all other popups (including blank ones), create a new panel
+        // WebKit will navigate the popup automatically via the page's JavaScript
+        NSLog("🪟 Creating popup panel for: \(url?.absoluteString ?? "blank/nil URL")")
         if let popupWebView = delegate?.webViewController(self, createPopupPanelFor: url, configuration: configuration) {
             return popupWebView
         }
@@ -2272,7 +2290,7 @@ protocol WebViewControllerDelegate: AnyObject {
     func webViewController(_ controller: WebViewController, didRequestNewBubble url: String)
     func webViewController(_ controller: WebViewController, didUpdateURL url: String)
     func webViewController(_ controller: WebViewController, didUpdateFavicon image: NSImage)
-    func webViewController(_ controller: WebViewController, createPopupPanelFor url: URL, configuration: WKWebViewConfiguration) -> WKWebView?
+    func webViewController(_ controller: WebViewController, createPopupPanelFor url: URL?, configuration: WKWebViewConfiguration) -> WKWebView?
     func webViewControllerDidRequestClose(_ controller: WebViewController)
 }
 

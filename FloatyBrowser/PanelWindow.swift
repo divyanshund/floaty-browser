@@ -179,13 +179,18 @@ class PanelWindow: NSPanel {
         
         contentView = containerView
         
-        // CRITICAL: Defer URL loading with a small delay
-        // WKWebView needs time to fully initialize after being added to view hierarchy
-        // Create explicit copy of URL string to ensure it's retained in the closure
-        let urlToLoad = String(url)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self, urlToLoad] in
-            guard let self = self else { return }
-            self.webViewController.loadURL(urlToLoad)
+        // Only load URL for non-popup windows
+        // For popups (configuration != nil), WebKit handles navigation automatically
+        // Loading URL manually for popups causes race conditions and crashes
+        if configuration == nil && !url.isEmpty {
+            // CRITICAL: Defer URL loading with a small delay
+            // WKWebView needs time to fully initialize after being added to view hierarchy
+            // Create explicit copy of URL string to ensure it's retained in the closure
+            let urlToLoad = String(url)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self, urlToLoad] in
+                guard let self = self else { return }
+                self.webViewController.loadURL(urlToLoad)
+            }
         }
     }
     
@@ -621,7 +626,7 @@ extension PanelWindow: WebViewControllerDelegate {
         panelDelegate?.panelWindow(self, didUpdateFavicon: image)
     }
     
-    func webViewController(_ controller: WebViewController, createPopupPanelFor url: URL, configuration: WKWebViewConfiguration) -> WKWebView? {
+    func webViewController(_ controller: WebViewController, createPopupPanelFor url: URL?, configuration: WKWebViewConfiguration) -> WKWebView? {
         // Forward popup creation request to WindowManager
         return panelDelegate?.panelWindow(self, createPopupPanelFor: url, configuration: configuration)
     }
@@ -658,5 +663,5 @@ protocol PanelWindowDelegate: AnyObject {
     func panelWindow(_ panel: PanelWindow, didRequestNewBubble url: String)
     func panelWindow(_ panel: PanelWindow, didUpdateURL url: String)
     func panelWindow(_ panel: PanelWindow, didUpdateFavicon image: NSImage)
-    func panelWindow(_ panel: PanelWindow, createPopupPanelFor url: URL, configuration: WKWebViewConfiguration) -> WKWebView?
+    func panelWindow(_ panel: PanelWindow, createPopupPanelFor url: URL?, configuration: WKWebViewConfiguration) -> WKWebView?
 }

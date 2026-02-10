@@ -778,8 +778,8 @@ class WebViewController: NSViewController {
     }
     
     override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
-        // Safety check - ensure webView exists
-        guard let webView = _webView else { return }
+        // Safety check - ensure webView exists and view is loaded before accessing UI
+        guard let webView = _webView, isViewLoaded else { return }
         
         if keyPath == #keyPath(WKWebView.estimatedProgress) {
             let progress = webView.estimatedProgress

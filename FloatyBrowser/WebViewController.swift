@@ -225,25 +225,28 @@ class BrowserStyleTextField: NSTextField {
             stringValue = fullURL
         }
         
-        // Apply text indentation to field editor when editing starts
-        if hasLockIcon, let fieldEditor = currentEditor() as? NSTextView {
-            let paragraphStyle = NSMutableParagraphStyle()
-            paragraphStyle.firstLineHeadIndent = 30
-            paragraphStyle.headIndent = 30
-            
-            // Set typing attributes for the field editor
-            var typingAttributes = fieldEditor.typingAttributes
-            typingAttributes[.paragraphStyle] = paragraphStyle
-            fieldEditor.typingAttributes = typingAttributes
-            
-            // Apply to existing text storage
-            let range = NSRange(location: 0, length: fieldEditor.textStorage?.length ?? 0)
-            fieldEditor.textStorage?.addAttribute(.paragraphStyle, value: paragraphStyle, range: range)
-        }
-        
-        // Select all text after showing full URL
+        // Apply indentation and select all on next run loop (after text is set)
         DispatchQueue.main.async { [weak self] in
-            if let fieldEditor = self?.currentEditor() as? NSTextView {
+            guard let self = self else { return }
+            
+            // Apply text indentation to field editor
+            if self.hasLockIcon, let fieldEditor = self.currentEditor() as? NSTextView {
+                let paragraphStyle = NSMutableParagraphStyle()
+                paragraphStyle.firstLineHeadIndent = 30
+                paragraphStyle.headIndent = 30
+                
+                // Set typing attributes for the field editor
+                var typingAttributes = fieldEditor.typingAttributes
+                typingAttributes[.paragraphStyle] = paragraphStyle
+                fieldEditor.typingAttributes = typingAttributes
+                
+                // Apply to existing text storage
+                let range = NSRange(location: 0, length: fieldEditor.textStorage?.length ?? 0)
+                fieldEditor.textStorage?.addAttribute(.paragraphStyle, value: paragraphStyle, range: range)
+            }
+            
+            // Select all text
+            if let fieldEditor = self.currentEditor() as? NSTextView {
                 fieldEditor.selectAll(nil)
             }
         }
@@ -385,6 +388,9 @@ class WebViewController: NSViewController {
     // Theme color state
     private var currentThemeColor: NSColor?
     private var currentFavicon: NSImage?
+    
+    // Current page title (for history)
+    private var currentPageTitle: String = ""
     
     // External configuration (used for popups)
     private var externalConfiguration: WKWebViewConfiguration?
@@ -768,6 +774,7 @@ class WebViewController: NSViewController {
         webView.addObserver(self, forKeyPath: #keyPath(WKWebView.canGoBack), options: .new, context: nil)
         webView.addObserver(self, forKeyPath: #keyPath(WKWebView.canGoForward), options: .new, context: nil)
         webView.addObserver(self, forKeyPath: #keyPath(WKWebView.url), options: .new, context: nil)
+        webView.addObserver(self, forKeyPath: #keyPath(WKWebView.title), options: .new, context: nil)
     }
     
     override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
@@ -813,6 +820,9 @@ class WebViewController: NSViewController {
                 updateLockIcon()
                 // Don't fetch favicon here - wait for page to load
             }
+        } else if keyPath == #keyPath(WKWebView.title) {
+            // Store title for history recording
+            currentPageTitle = webView.title ?? ""
         }
     }
     
@@ -961,19 +971,44 @@ class WebViewController: NSViewController {
             return
         }
         
-        // JavaScript to extract favicon from the page
+        // JavaScript to extract the BEST favicon from the page
+        // Priority: apple-touch-icon (180px) > large icons > any icon > /favicon.ico
         let script = """
         (function() {
             var links = document.getElementsByTagName('link');
+            var bestIcon = null;
+            var bestSize = 0;
+            
             for (var i = 0; i < links.length; i++) {
                 var link = links[i];
-                var rel = link.getAttribute('rel');
-                if (rel && (rel.toLowerCase().includes('icon'))) {
+                var rel = (link.getAttribute('rel') || '').toLowerCase();
+                
+                // Priority 1: Apple touch icon (usually 180x180)
+                if (rel.includes('apple-touch-icon')) {
                     return link.href;
                 }
+                
+                // Check for icon links
+                if (rel.includes('icon')) {
+                    var sizes = link.getAttribute('sizes') || '';
+                    var size = 0;
+                    
+                    // Parse size (e.g., "192x192" -> 192)
+                    var match = sizes.match(/(\\d+)x(\\d+)/);
+                    if (match) {
+                        size = parseInt(match[1], 10);
+                    }
+                    
+                    // Keep track of largest icon
+                    if (size > bestSize || (!bestIcon && size === 0)) {
+                        bestSize = size;
+                        bestIcon = link.href;
+                    }
+                }
             }
-            // Fallback to default favicon location
-            return window.location.origin + '/favicon.ico';
+            
+            // Return best found icon, or fallback to /favicon.ico
+            return bestIcon || (window.location.origin + '/favicon.ico');
         })();
         """
         
@@ -1038,6 +1073,7 @@ class WebViewController: NSViewController {
             webView.removeObserver(self, forKeyPath: #keyPath(WKWebView.canGoBack))
             webView.removeObserver(self, forKeyPath: #keyPath(WKWebView.canGoForward))
             webView.removeObserver(self, forKeyPath: #keyPath(WKWebView.url))
+            webView.removeObserver(self, forKeyPath: #keyPath(WKWebView.title))
         }
         NotificationCenter.default.removeObserver(self)
     }
@@ -1216,7 +1252,12 @@ extension WebViewController: WKNavigationDelegate {
     
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         NSLog("📍 Page committed (started loading): \(webView.url?.absoluteString ?? "unknown")")
-        // Test now runs via injected JavaScript (see webConfiguration)
+        
+        // Reset to default colors immediately when navigating to a new page
+        // This ensures text is always visible during the transition
+        if useThemeColors {
+            resetToDefaultIconColors()
+        }
     }
     
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -1225,6 +1266,12 @@ extension WebViewController: WKNavigationDelegate {
         // Update lock icon based on URL scheme
         updateLockIcon()
         
+        // Record history (skip for popup windows to avoid duplicates)
+        if !isPopupWindow, let url = webView.url {
+            let title = webView.title ?? currentPageTitle
+            HistoryManager.shared.recordVisit(url: url.absoluteString, title: title)
+        }
+        
         // Fetch favicon after page fully loads
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             self?.fetchFavicon()
@@ -1232,6 +1279,9 @@ extension WebViewController: WKNavigationDelegate {
         
         // Extract and apply theme colors if enabled
         if useThemeColors {
+            // Reset to default colors immediately to ensure text is visible
+            // The async extraction will update colors once complete
+            resetToDefaultIconColors()
             extractAndApplyThemeColor()
         }
     }
@@ -1292,8 +1342,8 @@ extension WebViewController: WKUIDelegate {
         // Extract the callback URL scheme from the OAuth URL
         let callbackScheme = extractCallbackScheme(from: url)
         
-        // Store reference to parent WebView for later
-        let parentWebViewRef = parentWebView
+        // Use weak reference to parent WebView to prevent crash if panel is closed during auth
+        weak var weakParentWebView = parentWebView
         
         // Create authentication session
         authSession = ASWebAuthenticationSession(
@@ -1304,7 +1354,7 @@ extension WebViewController: WKUIDelegate {
                 self?.handleAuthenticationSessionCallback(
                     callbackURL: callbackURL,
                     error: error,
-                    parentWebView: parentWebViewRef
+                    parentWebView: weakParentWebView
                 )
             }
         }
@@ -1358,7 +1408,8 @@ extension WebViewController: WKUIDelegate {
     }
     
     /// Handle callback from ASWebAuthenticationSession
-    private func handleAuthenticationSessionCallback(callbackURL: URL?, error: Error?, parentWebView: WKWebView) {
+    /// Note: parentWebView is weak to prevent crashes if the panel was closed during auth
+    private func handleAuthenticationSessionCallback(callbackURL: URL?, error: Error?, parentWebView: WKWebView?) {
         // Clear session reference
         authSession = nil
         
@@ -1371,8 +1422,9 @@ extension WebViewController: WKUIDelegate {
                 NSLog("⚠️ OAuth cancelled or completed")
                 
                 // Try reloading parent page in case OAuth set cookies
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    parentWebView.reload()
+                // Use weak reference to avoid crash if panel was closed
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak parentWebView] in
+                    parentWebView?.reload()
                 }
                 return
             }
@@ -1388,9 +1440,13 @@ extension WebViewController: WKUIDelegate {
         
         NSLog("✅ OAuth callback received - completing login")
         
-        // Navigate parent WebView to the callback URL
+        // Navigate parent WebView to the callback URL (if still available)
         // The website will process this and complete the login
-        parentWebView.load(URLRequest(url: callbackURL))
+        if let webView = parentWebView {
+            webView.load(URLRequest(url: callbackURL))
+        } else {
+            NSLog("⚠️ Parent WebView no longer available, cannot complete OAuth callback")
+        }
         
         // Bring app to foreground
         NSApp.activate(ignoringOtherApps: true)
@@ -1399,20 +1455,45 @@ extension WebViewController: WKUIDelegate {
     /// Detects if a URL is an OAuth/authentication URL
     /// OAuth URLs are handled by ASWebAuthenticationSession
     ///
-    /// Uses a hybrid approach to minimize false positives:
-    /// 1. Known OAuth provider domains → always detected
-    /// 2. Unknown domains → require BOTH OAuth path AND multiple query params
-    /// 3. Generic paths like /login, /signin are NOT treated as OAuth (too many false positives)
+    /// IMPORTANT: ASWebAuthenticationSession only works for FIRST-PARTY OAuth
+    /// (where our app is the OAuth client). It does NOT work for third-party login
+    /// scenarios like "Login with Facebook" on Instagram/Spotify, because the callback
+    /// goes back to the third-party site, not a custom URL scheme we control.
+    ///
+    /// For this reason, we EXCLUDE providers commonly used as third-party login
+    /// (Facebook, Google) and let them work as normal popups with shared cookies.
     private func isOAuthURL(_ url: URL) -> Bool {
         let urlString = url.absoluteString.lowercased()
         let host = url.host?.lowercased() ?? ""
+        
+        // EXCLUDED: Providers commonly used for third-party login
+        // These work better as popups with shared cookies
+        // - Facebook: Used by Instagram, Spotify, many others
+        // - Google: Blocks ASWebAuthenticationSession anyway
+        let excludedProviders = [
+            "facebook.com",
+            "accounts.google.com",
+            "google.com/accounts",
+        ]
+        
+        for provider in excludedProviders {
+            if host.contains(provider) || urlString.contains(provider) {
+                print("🌐 Third-party login provider detected (\(provider)) - using popup instead of OAuth session")
+                return false
+            }
+        }
+        
+        // Only use ASWebAuthenticationSession for providers where:
+        // 1. Our app is the OAuth client (rare for a browser)
+        // 2. We control the callback URL scheme
+        // Since this is a browser, these cases are rare - mostly for internal app features
+        
         let path = url.path.lowercased()
         let query = url.query?.lowercased() ?? ""
         
-        // LAYER 1: Well-known OAuth provider domains - always trust these
-        // These are specific OAuth endpoints, not generic login pages
+        // Well-known OAuth provider domains that might work with ASWebAuthenticationSession
+        // These are less commonly used as third-party login providers
         let oauthProviderDomains = [
-            "accounts.google.com",           // Google OAuth & GSI
             "login.microsoftonline.com",     // Microsoft OAuth
             "appleid.apple.com",             // Apple Sign In
             "api.twitter.com/oauth",         // Twitter OAuth API
@@ -1423,7 +1504,7 @@ extension WebViewController: WKUIDelegate {
             "discord.com/oauth2",            // Discord OAuth
             "discord.com/api/oauth2",        // Discord OAuth API
             "slack.com/oauth",               // Slack OAuth
-            "accounts.spotify.com",          // Spotify OAuth
+            "accounts.spotify.com",          // Spotify OAuth (when Spotify is the client)
             "www.dropbox.com/oauth2",        // Dropbox OAuth
         ]
         
@@ -1434,19 +1515,7 @@ extension WebViewController: WKUIDelegate {
             }
         }
         
-        // LAYER 2: Facebook special handling - only OAuth endpoints, not regular facebook.com
-        if host.contains("facebook.com") {
-            let facebookOAuthPaths = ["/v", "/dialog/oauth", "/login.php"]
-            for oauthPath in facebookOAuthPaths {
-                if path.contains(oauthPath) && query.contains("client_id") {
-                    print("🔐 OAuth detected: Facebook OAuth endpoint")
-                    return true
-                }
-            }
-        }
-        
-        // LAYER 3: For unknown domains, require STRONG OAuth indicators
-        // Must have BOTH: OAuth-specific path AND required query parameters
+        // For unknown domains, require STRONG OAuth indicators
         let hasOAuthPath = path.contains("/oauth") || path.contains("/oauth2")
         let hasClientId = query.contains("client_id=")
         let hasRedirectUri = query.contains("redirect_uri=")
@@ -1458,14 +1527,13 @@ extension WebViewController: WKUIDelegate {
             return true
         }
         
-        // Also detect if we have response_type (code/token) with client_id - definitive OAuth
+        // Also detect if we have response_type (code/token) with client_id
         if hasResponseType && hasClientId {
             print("🔐 OAuth detected: response_type with client_id")
             return true
         }
         
         // NOT detected as OAuth - will open as normal popup
-        // This includes: /login, /signin, /authorize (without OAuth query params)
         return false
     }
     

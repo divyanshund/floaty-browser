@@ -129,18 +129,21 @@ class WindowManager: NSObject {
         
         NSLog("🪟 Creating popup panel at center of screen")
         
-        // Create panel with external configuration (for OAuth popup integration)
+        // Create panel with external configuration (for popup integration)
         let panel = PanelWindow(id: id, url: url, nearBubble: centerPosition, configuration: configuration)
         panel.panelDelegate = self
         
         // Store panel (but no bubble - popups are standalone)
         panels[id] = panel
         
-        // Show panel immediately
-        panel.makeKeyAndOrderFront(nil)
-        panel.animateIn()
-        
         print("Created popup panel (no bubble) - ID: \(id.uuidString)")
+        
+        // IMPORTANT: Show panel AFTER returning webView to WebKit
+        // Doing this synchronously can interfere with WebKit's popup handling
+        DispatchQueue.main.async {
+            panel.makeKeyAndOrderFront(nil)
+            panel.animateIn()
+        }
         
         return panel
     }
@@ -504,8 +507,18 @@ extension WindowManager: PanelWindowDelegate {
         // Create a new panel for the popup (using current mouse position or center of screen)
         let popupPanel = createPanelForPopup(url: url.absoluteString, configuration: configuration)
         
+        // CRITICAL: Ensure the webView is fully loaded before returning
+        // Force view loading if not already done
+        _ = popupPanel.webViewController.view
+        
         // Return the panel's WebView so WebKit can use it for the popup
-        return popupPanel.webViewController.webView
+        guard let webView = popupPanel.webViewController.webView else {
+            NSLog("❌ Failed to create webView for popup panel - returning nil")
+            return nil
+        }
+        
+        NSLog("✅ Created popup webView successfully")
+        return webView
     }
 }
 

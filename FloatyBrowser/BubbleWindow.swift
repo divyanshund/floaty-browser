@@ -496,6 +496,9 @@ class BubbleView: NSView {
         iconImageView.imageAlignment = .alignCenter
         iconImageView.wantsLayer = true
         iconImageView.layer?.magnificationFilter = .linear  // High-quality scaling
+        // Make favicon circular to match bubble shape
+        iconImageView.layer?.cornerRadius = iconImageView.frame.width / 2
+        iconImageView.layer?.masksToBounds = true
         iconImageView.isHidden = true
         addSubview(iconImageView)
     }

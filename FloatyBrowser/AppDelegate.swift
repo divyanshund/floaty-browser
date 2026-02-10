@@ -12,6 +12,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let windowManager = WindowManager.shared
     private var onboardingWindowController: OnboardingWindowController?
     private var preferencesWindowController: PreferencesWindowController?
+    private var historyWindowController: HistoryWindowController?
     
     // UserDefaults key
     private let hasCompletedOnboardingKey = "hasCompletedOnboarding"
@@ -242,6 +243,61 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
     
+    // MARK: - History
+    
+    @objc private func showHistory() {
+        NSLog("📜 AppDelegate: Opening History")
+        
+        // Create history window if it doesn't exist
+        if historyWindowController == nil {
+            historyWindowController = HistoryWindowController()
+        }
+        
+        // Refresh and show
+        historyWindowController?.refresh()
+        historyWindowController?.showWindow(nil)
+        historyWindowController?.window?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+    
+    @objc private func clearHistory() {
+        let alert = NSAlert()
+        alert.messageText = "Clear History"
+        alert.informativeText = "Choose how much history to clear:"
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: "Last Hour")
+        alert.addButton(withTitle: "Today")
+        alert.addButton(withTitle: "All History")
+        
+        let response = alert.runModal()
+        
+        let historyManager = HistoryManager.shared
+        
+        switch response {
+        case .alertSecondButtonReturn: // Last Hour
+            let oneHourAgo = Date().addingTimeInterval(-3600)
+            historyManager.clearHistory(olderThan: oneHourAgo)
+        case .alertThirdButtonReturn: // Today
+            let calendar = Calendar.current
+            if let startOfDay = calendar.date(bySettingHour: 0, minute: 0, second: 0, of: Date()) {
+                historyManager.clearHistory(olderThan: startOfDay)
+            }
+        case NSApplication.ModalResponse(rawValue: NSApplication.ModalResponse.alertThirdButtonReturn.rawValue + 1): // All History
+            historyManager.clearAllHistory()
+        default:
+            return // Cancel
+        }
+        
+        // Refresh history window if open
+        historyWindowController?.refresh()
+    }
+    
+    @objc private func openHistoryItem(_ sender: NSMenuItem) {
+        guard let entry = sender.representedObject as? HistoryEntry else { return }
+        _ = windowManager.createBubble(url: entry.url)
+    }
+    
     // MARK: - Main Menu Setup
     
     private func setupMainMenu() {
@@ -297,6 +353,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         editMenuItem.submenu = editMenu
         
+        // History Menu
+        let historyMenuItem = NSMenuItem()
+        mainMenu.addItem(historyMenuItem)
+        let historyMenu = NSMenu(title: "History")
+        historyMenu.delegate = self
+        
+        let showHistoryItem = NSMenuItem(title: "Show All History", action: #selector(showHistory), keyEquivalent: "y")
+        showHistoryItem.target = self
+        historyMenu.addItem(showHistoryItem)
+        
+        historyMenu.addItem(.separator())
+        
+        let clearHistoryItem = NSMenuItem(title: "Clear History...", action: #selector(clearHistory), keyEquivalent: "")
+        clearHistoryItem.target = self
+        historyMenu.addItem(clearHistoryItem)
+        
+        historyMenu.addItem(.separator())
+        
+        // Recent history items will be added dynamically via delegate
+        let recentPlaceholder = NSMenuItem(title: "Recent", action: nil, keyEquivalent: "")
+        recentPlaceholder.isEnabled = false
+        recentPlaceholder.tag = 1000 // Tag to identify for dynamic update
+        historyMenu.addItem(recentPlaceholder)
+        
+        historyMenuItem.submenu = historyMenu
+        
         // Window Menu
         let windowMenuItem = NSMenuItem()
         mainMenu.addItem(windowMenuItem)
@@ -342,6 +424,54 @@ extension AppDelegate: NSMenuDelegate {
                 let item = NSMenuItem(title: "No open bubbles", action: nil, keyEquivalent: "")
                 item.isEnabled = false
                 menu.addItem(item)
+            }
+        }
+        
+        // Check if this is the History menu
+        if menu.title == "History" {
+            // Find and remove items after the separator (recent history items)
+            // Keep: Show All History, separator, Clear History, separator
+            // Remove: Everything after second separator (tag 1000 and beyond)
+            
+            // Find the placeholder item and remove everything after second separator
+            var foundSecondSeparator = false
+            var separatorCount = 0
+            var itemsToRemove: [NSMenuItem] = []
+            
+            for item in menu.items {
+                if item.isSeparatorItem {
+                    separatorCount += 1
+                    if separatorCount == 2 {
+                        foundSecondSeparator = true
+                    }
+                } else if foundSecondSeparator {
+                    itemsToRemove.append(item)
+                }
+            }
+            
+            for item in itemsToRemove {
+                menu.removeItem(item)
+            }
+            
+            // Add recent history items
+            let recentEntries = HistoryManager.shared.getRecentEntries(limit: 15)
+            
+            if recentEntries.isEmpty {
+                let noHistoryItem = NSMenuItem(title: "No Recent History", action: nil, keyEquivalent: "")
+                noHistoryItem.isEnabled = false
+                menu.addItem(noHistoryItem)
+            } else {
+                for entry in recentEntries {
+                    let title = entry.title.count > 40 ? String(entry.title.prefix(37)) + "..." : entry.title
+                    let item = NSMenuItem(title: title, action: #selector(openHistoryItem(_:)), keyEquivalent: "")
+                    item.target = self
+                    item.representedObject = entry
+                    
+                    // Add domain as subtitle/tooltip
+                    item.toolTip = entry.url
+                    
+                    menu.addItem(item)
+                }
             }
         }
     }

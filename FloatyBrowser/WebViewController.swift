@@ -1260,21 +1260,43 @@ extension WebViewController: WKNavigationDelegate {
     }
     
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        // Safety check: ensure view is loaded before accessing UI elements
+        guard isViewLoaded else { return }
+        
         progressIndicator.isHidden = false
         progressIndicator.doubleValue = 0
     }
     
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        // Safety check: ensure this is our webView and we haven't been deallocated
+        guard webView === _webView else {
+            NSLog("⚠️ didCommit called with wrong webView, ignoring")
+            return
+        }
+        
         NSLog("📍 Page committed (started loading): \(webView.url?.absoluteString ?? "unknown")")
         
         // Reset to default colors immediately when navigating to a new page
         // This ensures text is always visible during the transition
-        if useThemeColors {
+        // Only do this if the view is loaded and toolbar exists
+        if useThemeColors && isViewLoaded {
             resetToDefaultIconColors()
         }
     }
     
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        // Safety check: ensure this is our webView
+        guard webView === _webView else {
+            NSLog("⚠️ didFinish called with wrong webView, ignoring")
+            return
+        }
+        
+        // Safety check: ensure view is loaded before accessing UI elements
+        guard isViewLoaded else {
+            NSLog("⚠️ didFinish called before view loaded, ignoring")
+            return
+        }
+        
         progressIndicator.isHidden = true
         
         // Update lock icon based on URL scheme
@@ -1301,6 +1323,9 @@ extension WebViewController: WKNavigationDelegate {
     }
     
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        // Safety check: ensure view is loaded before accessing UI elements
+        guard isViewLoaded else { return }
+        
         progressIndicator.isHidden = true
         print("❌ Navigation failed: \(error.localizedDescription)")
         if isNetworkError(error) {
@@ -1309,6 +1334,9 @@ extension WebViewController: WKNavigationDelegate {
     }
     
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        // Safety check: ensure view is loaded before accessing UI elements
+        guard isViewLoaded else { return }
+        
         progressIndicator.isHidden = true
         print("❌ Provisional navigation failed: \(error.localizedDescription)")
         if isNetworkError(error) {

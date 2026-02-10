@@ -9,10 +9,38 @@ import Cocoa
 import WebKit
 import AuthenticationServices
 
+// Custom cell that vertically centers text in NSTextField
+class VerticallyCenteredTextFieldCell: NSTextFieldCell {
+    override func titleRect(forBounds rect: NSRect) -> NSRect {
+        var titleRect = super.titleRect(forBounds: rect)
+        let minimumHeight = cellSize(forBounds: rect).height
+        titleRect.origin.y += (titleRect.height - minimumHeight) / 2
+        titleRect.size.height = minimumHeight
+        return titleRect
+    }
+    
+    override func drawInterior(withFrame cellFrame: NSRect, in controlView: NSView) {
+        super.drawInterior(withFrame: titleRect(forBounds: cellFrame), in: controlView)
+    }
+    
+    override func edit(withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText, delegate: Any?, event: NSEvent?) {
+        super.edit(withFrame: titleRect(forBounds: rect), in: controlView, editor: textObj, delegate: delegate, event: event)
+    }
+    
+    override func select(withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText, delegate: Any?, start selStart: Int, length selLength: Int) {
+        super.select(withFrame: titleRect(forBounds: rect), in: controlView, editor: textObj, delegate: delegate, start: selStart, length: selLength)
+    }
+}
+
 // Custom text field with browser-style select-all behavior
 // Selects all text on first click, allows normal cursor positioning while editing
 class BrowserStyleTextField: NSTextField {
     private var isCurrentlyEditing = false
+    
+    // Full URL storage for Safari-style display
+    // Shows simplified domain when not editing, full URL when editing
+    private var fullURL: String = ""
+    
     var hasLockIcon: Bool = false {  // Controls left padding for lock icon
         didSet {
             // Update text indentation when lock icon visibility changes
@@ -24,12 +52,72 @@ class BrowserStyleTextField: NSTextField {
     
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
+        setupCell()
         setupFocusGlow()
     }
     
     required init?(coder: NSCoder) {
         super.init(coder: coder)
+        setupCell()
         setupFocusGlow()
+    }
+    
+    private func setupCell() {
+        // Use custom cell for vertical centering
+        let centeredCell = VerticallyCenteredTextFieldCell()
+        centeredCell.isEditable = true
+        centeredCell.isSelectable = true
+        centeredCell.isBezeled = true
+        centeredCell.bezelStyle = .roundedBezel
+        centeredCell.font = self.font
+        centeredCell.alignment = self.alignment
+        self.cell = centeredCell
+    }
+    
+    /// Set URL with Safari-style display (shows domain when not editing)
+    func setURL(_ urlString: String) {
+        fullURL = urlString
+        if !isCurrentlyEditing {
+            // Show simplified domain when not editing
+            stringValue = simplifiedURL(from: urlString)
+        } else {
+            // Show full URL when editing
+            stringValue = urlString
+        }
+    }
+    
+    /// Get the full URL (for navigation)
+    func getFullURL() -> String {
+        // If user edited the field, return what they typed
+        // Otherwise return the stored full URL
+        if isCurrentlyEditing || stringValue != simplifiedURL(from: fullURL) {
+            return stringValue
+        }
+        return fullURL
+    }
+    
+    /// Extract simplified display URL (domain only, no scheme or query params)
+    private func simplifiedURL(from urlString: String) -> String {
+        guard let url = URL(string: urlString) else { return urlString }
+        
+        // Get host without www prefix
+        var host = url.host ?? urlString
+        if host.hasPrefix("www.") {
+            host = String(host.dropFirst(4))
+        }
+        
+        // Add path if it's meaningful (not just "/" or empty)
+        let path = url.path
+        if !path.isEmpty && path != "/" {
+            // Truncate long paths
+            let maxPathLength = 20
+            if path.count > maxPathLength {
+                return host + String(path.prefix(maxPathLength)) + "..."
+            }
+            return host + path
+        }
+        
+        return host
     }
     
     private func setupFocusGlow() {
@@ -132,6 +220,11 @@ class BrowserStyleTextField: NSTextField {
         isCurrentlyEditing = true
         animateFocusGlow(isFocused: true)
         
+        // Show full URL when editing starts (Safari-style)
+        if !fullURL.isEmpty {
+            stringValue = fullURL
+        }
+        
         // Apply text indentation to field editor when editing starts
         if hasLockIcon, let fieldEditor = currentEditor() as? NSTextView {
             let paragraphStyle = NSMutableParagraphStyle()
@@ -147,12 +240,24 @@ class BrowserStyleTextField: NSTextField {
             let range = NSRange(location: 0, length: fieldEditor.textStorage?.length ?? 0)
             fieldEditor.textStorage?.addAttribute(.paragraphStyle, value: paragraphStyle, range: range)
         }
+        
+        // Select all text after showing full URL
+        DispatchQueue.main.async { [weak self] in
+            if let fieldEditor = self?.currentEditor() as? NSTextView {
+                fieldEditor.selectAll(nil)
+            }
+        }
     }
     
     override func textDidEndEditing(_ notification: Notification) {
         super.textDidEndEditing(notification)
         isCurrentlyEditing = false
         animateFocusGlow(isFocused: false)
+        
+        // Show simplified URL when editing ends (Safari-style)
+        if !fullURL.isEmpty {
+            stringValue = simplifiedURL(from: fullURL)
+        }
         
         // Ensure indentation is preserved after editing
         updateTextIndentation()
@@ -699,7 +804,8 @@ class WebViewController: NSViewController {
             forwardButton.isEnabled = webView.canGoForward
         } else if keyPath == #keyPath(WKWebView.url) {
             if let url = webView.url {
-                urlField.stringValue = url.absoluteString
+                // Use setURL for Safari-style display (shows domain when not editing)
+                urlField.setURL(url.absoluteString)
                 // Apply indentation after setting URL (preserves lock icon spacing)
                 urlField.updateTextIndentation()
                 delegate?.webViewController(self, didUpdateURL: url.absoluteString)
@@ -1084,8 +1190,8 @@ class WebViewController: NSViewController {
 extension WebViewController: NSTextFieldDelegate {
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
         if commandSelector == #selector(NSResponder.insertNewline(_:)) {
-            // User pressed Enter
-            loadURL(urlField.stringValue)
+            // User pressed Enter - use getFullURL() to get what user typed or the stored URL
+            loadURL(urlField.getFullURL())
             view.window?.makeFirstResponder(nil) // Dismiss keyboard focus
             return true
         }

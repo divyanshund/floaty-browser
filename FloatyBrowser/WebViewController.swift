@@ -1253,7 +1253,24 @@ extension WebViewController: NSTextFieldDelegate {
 
 extension WebViewController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        // Allow all navigation
+        // Check if this is a Facebook login/OAuth navigation
+        if let url = navigationAction.request.url {
+            let host = url.host?.lowercased() ?? ""
+            let urlString = url.absoluteString.lowercased()
+            
+            // Block Facebook OAuth/login URLs - they cause crashes and hangs
+            if (host.contains("facebook.com") || host.contains("fb.com")) &&
+               (urlString.contains("/dialog") || urlString.contains("/oauth") || 
+                urlString.contains("/login") || urlString.contains("/oidc") ||
+                urlString.contains("connect/login")) {
+                NSLog("🚫 Blocking Facebook login navigation: \(url.absoluteString)")
+                decisionHandler(.cancel)
+                showFacebookLoginUnsupportedAlert()
+                return
+            }
+        }
+        
+        // Allow all other navigation
         // Note: Google sign-in is blocked by Google's security policy for embedded WebViews.
         // This is a known limitation - Google requires sign-in via Safari or Chrome.
         decisionHandler(.allow)

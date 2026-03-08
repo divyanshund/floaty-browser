@@ -1370,29 +1370,19 @@ extension WebViewController: WKUIDelegate {
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
         let url = navigationAction.request.url
         
-        NSLog("🪟 createWebViewWith called - URL: \(url?.absoluteString ?? "nil"), current page: \(_webView?.url?.absoluteString ?? "nil")")
-        
-        // Check if this is a Facebook login popup - these cause crashes due to WebKit lifecycle issues
-        // Show a friendly message instead of crashing
-        let isFBUrl = isFacebookLoginURL(url)
-        let isFBContext = isFacebookLoginContext()
-        NSLog("🪟 Facebook checks - isFacebookLoginURL: \(isFBUrl), isFacebookLoginContext: \(isFBContext)")
-        
-        if isFBUrl || isFBContext {
-            NSLog("🚫 Facebook login detected - showing unsupported message")
+        // Backup check for Facebook login popups (primary blocking is in decidePolicyFor)
+        if isFacebookLoginURL(url) {
             showFacebookLoginUnsupportedAlert()
             return nil
         }
         
-        // Only check OAuth if we have a URL - blank popups are never OAuth
+        // Check for OAuth URLs that should use ASWebAuthenticationSession
         if let url = url, isOAuthURL(url) {
-            NSLog("🔐 OAuth detected - using ASWebAuthenticationSession")
             startOAuthWithAuthenticationSession(url: url, parentWebView: webView)
-            return nil  // Don't create popup - ASWebAuthenticationSession handles it
+            return nil
         }
         
         // For all other popups, create a new panel
-        NSLog("🪟 Creating popup panel for: \(url?.absoluteString ?? "blank/nil URL")")
         if let popupWebView = delegate?.webViewController(self, createPopupPanelFor: url, configuration: configuration) {
             return popupWebView
         }
@@ -1402,40 +1392,16 @@ extension WebViewController: WKUIDelegate {
     /// Check if URL is a Facebook login/OAuth URL
     private func isFacebookLoginURL(_ url: URL?) -> Bool {
         guard let url = url else { return false }
-        let urlString = url.absoluteString.lowercased()
         let host = url.host?.lowercased() ?? ""
+        let urlString = url.absoluteString.lowercased()
         
-        // Check for Facebook domains
         let isFacebookDomain = host.contains("facebook.com") || host.contains("fb.com")
-        
-        // Check for login/OAuth paths
         let isLoginPath = urlString.contains("/login") ||
-                          urlString.contains("/dialog/oauth") ||
-                          urlString.contains("/oidc") ||
-                          urlString.contains("/v") && urlString.contains("/dialog")
+                          urlString.contains("/dialog") ||
+                          urlString.contains("/oauth") ||
+                          urlString.contains("/oidc")
         
         return isFacebookDomain && isLoginPath
-    }
-    
-    /// Check if current page context suggests Facebook login is being initiated
-    /// (e.g., Instagram/Spotify page trying to open Facebook popup)
-    private func isFacebookLoginContext() -> Bool {
-        // Check current webView URL
-        let currentURL = _webView?.url?.absoluteString.lowercased() ?? ""
-        let currentHost = _webView?.url?.host?.lowercased() ?? ""
-        
-        // Sites known to use Facebook login that cause crashes
-        let problematicSites = ["instagram.com", "spotify.com", "instagram", "spotify"]
-        
-        // Check if we're on a site that uses Facebook login
-        for site in problematicSites {
-            if currentURL.contains(site) || currentHost.contains(site) {
-                NSLog("🚫 Detected popup from problematic site: \(currentHost)")
-                return true
-            }
-        }
-        
-        return false
     }
     
     /// Show alert explaining Facebook login isn't supported

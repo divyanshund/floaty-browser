@@ -1350,13 +1350,16 @@ extension WebViewController: WKNavigationDelegate {
 extension WebViewController: WKUIDelegate {
     /// Handle popup window requests (window.open(), target="_blank", etc.)
     /// OAuth popups use ASWebAuthenticationSession, other popups open in new panels
-    ///
-    /// IMPORTANT: Facebook and other sites often open blank popups first (nil URL or about:blank),
-    /// then navigate them via JavaScript. We must ALWAYS create a WKWebView for popup requests,
-    /// never return nil, or WebKit will crash when the JS tries to use the popup reference.
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-        // URL may be nil for blank popups - that's OK, we still create the webView
         let url = navigationAction.request.url
+        
+        // Check if this is a Facebook login popup - these cause crashes due to WebKit lifecycle issues
+        // Show a friendly message instead of crashing
+        if isFacebookLoginURL(url) || isFacebookLoginContext() {
+            NSLog("🚫 Facebook login detected - showing unsupported message")
+            showFacebookLoginUnsupportedAlert()
+            return nil
+        }
         
         // Only check OAuth if we have a URL - blank popups are never OAuth
         if let url = url, isOAuthURL(url) {
@@ -1365,13 +1368,69 @@ extension WebViewController: WKUIDelegate {
             return nil  // Don't create popup - ASWebAuthenticationSession handles it
         }
         
-        // For all other popups (including blank ones), create a new panel
-        // WebKit will navigate the popup automatically via the page's JavaScript
+        // For all other popups, create a new panel
         NSLog("🪟 Creating popup panel for: \(url?.absoluteString ?? "blank/nil URL")")
         if let popupWebView = delegate?.webViewController(self, createPopupPanelFor: url, configuration: configuration) {
             return popupWebView
         }
         return nil
+    }
+    
+    /// Check if URL is a Facebook login/OAuth URL
+    private func isFacebookLoginURL(_ url: URL?) -> Bool {
+        guard let url = url else { return false }
+        let urlString = url.absoluteString.lowercased()
+        let host = url.host?.lowercased() ?? ""
+        
+        // Check for Facebook domains
+        let isFacebookDomain = host.contains("facebook.com") || host.contains("fb.com")
+        
+        // Check for login/OAuth paths
+        let isLoginPath = urlString.contains("/login") ||
+                          urlString.contains("/dialog/oauth") ||
+                          urlString.contains("/oidc") ||
+                          urlString.contains("/v") && urlString.contains("/dialog")
+        
+        return isFacebookDomain && isLoginPath
+    }
+    
+    /// Check if current page context suggests Facebook login is being initiated
+    /// (e.g., Instagram/Spotify page trying to open Facebook popup)
+    private func isFacebookLoginContext() -> Bool {
+        guard let currentURL = _webView?.url?.absoluteString.lowercased() else { return false }
+        
+        // Sites known to use Facebook login that cause issues
+        let facebookLoginSites = ["instagram.com", "spotify.com"]
+        
+        // Check if we're on a site that uses Facebook login
+        // and might be trying to open a blank popup for it
+        for site in facebookLoginSites {
+            if currentURL.contains(site) {
+                // If we're on Instagram/Spotify and a popup is being created,
+                // it's likely Facebook login (these sites primarily use FB login)
+                // This catches the "blank popup first" pattern Facebook uses
+                return true
+            }
+        }
+        
+        return false
+    }
+    
+    /// Show alert explaining Facebook login isn't supported
+    private func showFacebookLoginUnsupportedAlert() {
+        DispatchQueue.main.async { [weak self] in
+            guard let window = self?.view.window else { return }
+            
+            let alert = NSAlert()
+            alert.messageText = "Facebook Sign-In Not Supported"
+            alert.informativeText = "This browser doesn't support signing in with Facebook yet due to technical limitations.\n\nPlease use email, phone number, or another sign-in method instead."
+            alert.alertStyle = .informational
+            alert.addButton(withTitle: "OK")
+            
+            alert.beginSheetModal(for: window) { _ in
+                // Alert dismissed
+            }
+        }
     }
     
     /// Start OAuth flow using Apple's ASWebAuthenticationSession

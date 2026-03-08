@@ -1353,9 +1353,15 @@ extension WebViewController: WKUIDelegate {
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
         let url = navigationAction.request.url
         
+        NSLog("🪟 createWebViewWith called - URL: \(url?.absoluteString ?? "nil"), current page: \(_webView?.url?.absoluteString ?? "nil")")
+        
         // Check if this is a Facebook login popup - these cause crashes due to WebKit lifecycle issues
         // Show a friendly message instead of crashing
-        if isFacebookLoginURL(url) || isFacebookLoginContext() {
+        let isFBUrl = isFacebookLoginURL(url)
+        let isFBContext = isFacebookLoginContext()
+        NSLog("🪟 Facebook checks - isFacebookLoginURL: \(isFBUrl), isFacebookLoginContext: \(isFBContext)")
+        
+        if isFBUrl || isFBContext {
             NSLog("🚫 Facebook login detected - showing unsupported message")
             showFacebookLoginUnsupportedAlert()
             return nil
@@ -1397,18 +1403,17 @@ extension WebViewController: WKUIDelegate {
     /// Check if current page context suggests Facebook login is being initiated
     /// (e.g., Instagram/Spotify page trying to open Facebook popup)
     private func isFacebookLoginContext() -> Bool {
-        guard let currentURL = _webView?.url?.absoluteString.lowercased() else { return false }
+        // Check current webView URL
+        let currentURL = _webView?.url?.absoluteString.lowercased() ?? ""
+        let currentHost = _webView?.url?.host?.lowercased() ?? ""
         
-        // Sites known to use Facebook login that cause issues
-        let facebookLoginSites = ["instagram.com", "spotify.com"]
+        // Sites known to use Facebook login that cause crashes
+        let problematicSites = ["instagram.com", "spotify.com", "instagram", "spotify"]
         
         // Check if we're on a site that uses Facebook login
-        // and might be trying to open a blank popup for it
-        for site in facebookLoginSites {
-            if currentURL.contains(site) {
-                // If we're on Instagram/Spotify and a popup is being created,
-                // it's likely Facebook login (these sites primarily use FB login)
-                // This catches the "blank popup first" pattern Facebook uses
+        for site in problematicSites {
+            if currentURL.contains(site) || currentHost.contains(site) {
+                NSLog("🚫 Detected popup from problematic site: \(currentHost)")
                 return true
             }
         }

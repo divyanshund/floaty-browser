@@ -9,261 +9,272 @@ import Cocoa
 import WebKit
 import AuthenticationServices
 
-// Custom cell that vertically centers text in NSTextField
-class VerticallyCenteredTextFieldCell: NSTextFieldCell {
-    override func titleRect(forBounds rect: NSRect) -> NSRect {
-        var titleRect = super.titleRect(forBounds: rect)
-        let minimumHeight = cellSize(forBounds: rect).height
-        titleRect.origin.y += (titleRect.height - minimumHeight) / 2
-        titleRect.size.height = minimumHeight
-        return titleRect
-    }
-    
-    override func drawInterior(withFrame cellFrame: NSRect, in controlView: NSView) {
-        super.drawInterior(withFrame: titleRect(forBounds: cellFrame), in: controlView)
-    }
-    
-    override func edit(withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText, delegate: Any?, event: NSEvent?) {
-        super.edit(withFrame: titleRect(forBounds: rect), in: controlView, editor: textObj, delegate: delegate, event: event)
-    }
-    
-    override func select(withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText, delegate: Any?, start selStart: Int, length selLength: Int) {
-        super.select(withFrame: titleRect(forBounds: rect), in: controlView, editor: textObj, delegate: delegate, start: selStart, length: selLength)
-    }
+// MARK: - AddressBarTextView
+
+protocol AddressBarTextViewDelegate: AnyObject {
+    func addressBarDidSubmit(_ addressBar: AddressBarTextView, text: String)
 }
 
-// Custom text field with browser-style select-all behavior
-// Selects all text on first click, allows normal cursor positioning while editing
-class BrowserStyleTextField: NSTextField {
-    private var isCurrentlyEditing = false
-    
-    // Full URL storage for Safari-style display
-    // Shows simplified domain when not editing, full URL when editing
+/// Browser-style address bar built on NSTextView.
+/// Owns its own text storage — no shared field editor, no cell layer.
+class AddressBarTextView: NSView, NSTextViewDelegate {
+
+    weak var addressBarDelegate: AddressBarTextViewDelegate?
+
+    private let textView = NSTextView()
+    private let scrollView = NSScrollView()
+    private var placeholderLabel = NSTextField(labelWithString: "Search or enter website")
+
+    private(set) var isEditing = false
+    private var didJustEnterEditing = false
     private var fullURL: String = ""
-    
-    var hasLockIcon: Bool = false {  // Controls left padding for lock icon
+
+    var hasLockIcon: Bool = false {
         didSet {
-            // Update text indentation when lock icon visibility changes
-            updateTextIndentation()
+            let pad: CGFloat = hasLockIcon ? 32 : 8
+            textView.textContainerInset = NSSize(width: pad, height: verticalInset)
+            placeholderLabel.frame.origin.x = pad + 4
             needsDisplay = true
-            invalidateIntrinsicContentSize()
         }
     }
-    
+
+    // Exposed so WebViewController can theme the bar
+    var textColor: NSColor = .labelColor {
+        didSet {
+            textView.textColor = textColor
+            textView.insertionPointColor = textColor
+        }
+    }
+
+    var backgroundColor: NSColor? {
+        get { return scrollView.backgroundColor }
+        set { scrollView.backgroundColor = newValue ?? .clear; scrollView.drawsBackground = newValue != nil }
+    }
+
+    private var verticalInset: CGFloat {
+        let lineHeight = (textView.font ?? NSFont.systemFont(ofSize: 13)).ascender
+            + abs((textView.font ?? NSFont.systemFont(ofSize: 13)).descender)
+            + (textView.font ?? NSFont.systemFont(ofSize: 13)).leading
+        return max(0, (bounds.height - lineHeight) / 2 - 1)
+    }
+
+    // MARK: - Init
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        setupCell()
-        setupFocusGlow()
+        setup()
     }
-    
+
     required init?(coder: NSCoder) {
         super.init(coder: coder)
-        setupCell()
-        setupFocusGlow()
+        setup()
     }
-    
-    private func setupCell() {
-        // Use custom cell for vertical centering
-        let centeredCell = VerticallyCenteredTextFieldCell()
-        centeredCell.isEditable = true
-        centeredCell.isSelectable = true
-        centeredCell.isBezeled = true
-        centeredCell.bezelStyle = .roundedBezel
-        centeredCell.font = self.font
-        centeredCell.alignment = self.alignment
-        self.cell = centeredCell
+
+    private func setup() {
+        wantsLayer = true
+
+        // Scroll view (provides clipping, no visible scrollers)
+        scrollView.frame = bounds
+        scrollView.autoresizingMask = [.width, .height]
+        scrollView.hasVerticalScroller = false
+        scrollView.hasHorizontalScroller = false
+        scrollView.borderType = .noBorder
+        scrollView.drawsBackground = false
+        addSubview(scrollView)
+
+        // Text view — must have a real frame; NSTextView() defaults to zero.
+        let contentSize = scrollView.contentSize
+        let font = NSFont.systemFont(ofSize: 13, weight: .regular)
+        textView.frame = NSRect(x: 0, y: 0, width: contentSize.width, height: contentSize.height)
+        textView.minSize = NSSize(width: 0, height: contentSize.height)
+        textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: contentSize.height)
+        textView.font = font
+        textView.textColor = .labelColor
+        textView.insertionPointColor = .labelColor
+        textView.isRichText = false
+        textView.isFieldEditor = true
+        textView.isVerticallyResizable = false
+        textView.isHorizontallyResizable = true
+        textView.textContainer?.widthTracksTextView = false
+        textView.textContainer?.containerSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: contentSize.height)
+        textView.drawsBackground = false
+        textView.allowsUndo = true
+        textView.delegate = self
+        textView.textContainerInset = NSSize(width: 8, height: verticalInset)
+        scrollView.documentView = textView
+
+        // Placeholder label
+        placeholderLabel.font = font
+        placeholderLabel.textColor = NSColor.placeholderTextColor
+        placeholderLabel.isBezeled = false
+        placeholderLabel.drawsBackground = false
+        placeholderLabel.isEditable = false
+        placeholderLabel.isSelectable = false
+        placeholderLabel.frame = NSRect(x: 12, y: 0, width: bounds.width - 24, height: bounds.height)
+        placeholderLabel.autoresizingMask = [.width, .height]
+        addSubview(placeholderLabel)
     }
-    
-    /// Set URL with Safari-style display (shows domain when not editing)
+
+    override func layout() {
+        super.layout()
+        let h = scrollView.contentSize.height
+        textView.minSize = NSSize(width: 0, height: h)
+        textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: h)
+        textView.frame.size.height = h
+        textView.textContainer?.containerSize.height = h
+        textView.textContainerInset = NSSize(
+            width: hasLockIcon ? 32 : 8,
+            height: verticalInset
+        )
+    }
+
+    // MARK: - Public API
+
     func setURL(_ urlString: String) {
         fullURL = urlString
-        if !isCurrentlyEditing {
-            // Show simplified domain when not editing
-            stringValue = simplifiedURL(from: urlString)
-        } else {
-            // Show full URL when editing
-            stringValue = urlString
+        if !isEditing {
+            textView.string = simplifiedURL(from: urlString)
+            updatePlaceholderVisibility()
         }
     }
-    
-    /// Get the full URL (for navigation)
+
     func getFullURL() -> String {
-        // If user edited the field, return what they typed
-        // Otherwise return the stored full URL
-        if isCurrentlyEditing || stringValue != simplifiedURL(from: fullURL) {
-            return stringValue
+        if isEditing || textView.string != simplifiedURL(from: fullURL) {
+            return textView.string
         }
         return fullURL
     }
-    
-    /// Extract simplified display URL (domain only, no scheme or query params)
+
+    var stringValue: String {
+        get { textView.string }
+        set { textView.string = newValue; updatePlaceholderVisibility() }
+    }
+
+    var placeholderAttributedString: NSAttributedString? {
+        get { placeholderLabel.attributedStringValue }
+        set {
+            if let v = newValue { placeholderLabel.attributedStringValue = v }
+        }
+    }
+
+    // MARK: - Focus & Selection
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override var acceptsFirstResponder: Bool { true }
+
+    // When not editing, intercept clicks so they come to us (not the inner textView).
+    // When editing, let clicks through to the textView for cursor positioning.
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard let hit = super.hitTest(point) else { return nil }
+        if !isEditing { return self }
+        return hit
+    }
+
+    override func becomeFirstResponder() -> Bool {
+        enterEditing()
+        return true
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        if isEditing {
+            if didJustEnterEditing {
+                // This click triggered enterEditing via becomeFirstResponder.
+                // Don't forward it — it would place the cursor and undo select-all.
+                didJustEnterEditing = false
+                return
+            }
+            textView.mouseDown(with: event)
+            return
+        }
+        enterEditing()
+        didJustEnterEditing = false
+    }
+
+    private func enterEditing() {
+        isEditing = true
+        didJustEnterEditing = true
+        animateFocusGlow(isFocused: true)
+
+        if !fullURL.isEmpty {
+            textView.string = fullURL
+        }
+        updatePlaceholderVisibility()
+
+        window?.makeFirstResponder(textView)
+        textView.setSelectedRange(NSRange(location: 0, length: textView.string.count))
+    }
+
+    private func exitEditing() {
+        isEditing = false
+        animateFocusGlow(isFocused: false)
+
+        if !fullURL.isEmpty {
+            textView.string = simplifiedURL(from: fullURL)
+        }
+        updatePlaceholderVisibility()
+    }
+
+    // MARK: - NSTextViewDelegate
+
+    func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+        if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+            addressBarDelegate?.addressBarDidSubmit(self, text: textView.string)
+            window?.makeFirstResponder(nil)
+            return true
+        }
+        if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+            // Escape: revert to simplified URL and dismiss
+            if !fullURL.isEmpty {
+                textView.string = simplifiedURL(from: fullURL)
+            }
+            window?.makeFirstResponder(nil)
+            return true
+        }
+        return false
+    }
+
+    func textDidChange(_ notification: Notification) {
+        updatePlaceholderVisibility()
+    }
+
+    func textDidEndEditing(_ notification: Notification) {
+        exitEditing()
+    }
+
+    // MARK: - Helpers
+
     private func simplifiedURL(from urlString: String) -> String {
         guard let url = URL(string: urlString) else { return urlString }
-        
-        // Get host without www prefix
         var host = url.host ?? urlString
-        if host.hasPrefix("www.") {
-            host = String(host.dropFirst(4))
-        }
-        
-        // Add path if it's meaningful (not just "/" or empty)
+        if host.hasPrefix("www.") { host = String(host.dropFirst(4)) }
         let path = url.path
         if !path.isEmpty && path != "/" {
-            // Truncate long paths
             let maxPathLength = 20
             if path.count > maxPathLength {
                 return host + String(path.prefix(maxPathLength)) + "..."
             }
             return host + path
         }
-        
         return host
     }
-    
-    private func setupFocusGlow() {
-        wantsLayer = true
-        layer?.borderWidth = 0 // Start with no border
-        layer?.borderColor = NSColor.clear.cgColor
+
+    private func updatePlaceholderVisibility() {
+        placeholderLabel.isHidden = !textView.string.isEmpty
     }
-    
-    // Add left padding when lock icon is visible
-    override var intrinsicContentSize: NSSize {
-        var size = super.intrinsicContentSize
-        if hasLockIcon {
-            size.width += 30  // Extra width for lock icon padding
-        }
-        return size
-    }
-    
-    // Add text indentation when lock icon is visible
-    func updateTextIndentation() {
-        if hasLockIcon {
-            // Create paragraph style with left indent
-            let paragraphStyle = NSMutableParagraphStyle()
-            paragraphStyle.firstLineHeadIndent = 30
-            paragraphStyle.headIndent = 30
-            
-            // Apply to current text if any
-            if let currentText = self.attributedStringValue.string as String?, !currentText.isEmpty {
-                let attributes: [NSAttributedString.Key: Any] = [
-                    .paragraphStyle: paragraphStyle,
-                    .foregroundColor: self.textColor ?? NSColor.labelColor,
-                    .font: self.font ?? NSFont.systemFont(ofSize: 13)
-                ]
-                self.attributedStringValue = NSAttributedString(string: currentText, attributes: attributes)
-            }
-        } else {
-            // Remove indentation
-            if let currentText = self.attributedStringValue.string as String?, !currentText.isEmpty {
-                self.stringValue = currentText
-            }
-        }
-    }
-    
+
     private func animateFocusGlow(isFocused: Bool) {
-        NSAnimationContext.runAnimationGroup({ context in
+        NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.2
             context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
             context.allowsImplicitAnimation = true
-            
             if isFocused {
-                // Subtle blue glow when focused
                 self.layer?.borderWidth = 2.0
                 self.layer?.borderColor = NSColor.controlAccentColor.withAlphaComponent(0.5).cgColor
             } else {
-                // Remove glow when unfocused
                 self.layer?.borderWidth = 0
                 self.layer?.borderColor = NSColor.clear.cgColor
             }
-        })
-    }
-    
-    override func mouseDown(with event: NSEvent) {
-        let wasEditing = isCurrentlyEditing
-        
-        // Call super to handle the click
-        super.mouseDown(with: event)
-        
-        // Show focus glow immediately on click
-        if !wasEditing {
-            animateFocusGlow(isFocused: true)
-            isCurrentlyEditing = true
         }
-        
-        // Select all text on first click - needs slight delay for field editor to be ready
-        if !wasEditing {
-            DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
-                if let fieldEditor = self.currentEditor() as? NSTextView {
-                    fieldEditor.selectedRange = NSRange(location: 0, length: fieldEditor.string.count)
-                    
-                    // Apply indentation to field editor
-                    if self.hasLockIcon {
-                        let paragraphStyle = NSMutableParagraphStyle()
-                        paragraphStyle.firstLineHeadIndent = 30
-                        paragraphStyle.headIndent = 30
-                        
-                        var typingAttributes = fieldEditor.typingAttributes
-                        typingAttributes[.paragraphStyle] = paragraphStyle
-                        fieldEditor.typingAttributes = typingAttributes
-                        
-                        let range = NSRange(location: 0, length: fieldEditor.textStorage?.length ?? 0)
-                        fieldEditor.textStorage?.addAttribute(.paragraphStyle, value: paragraphStyle, range: range)
-                    }
-                }
-            }
-        }
-    }
-    
-    override func textDidBeginEditing(_ notification: Notification) {
-        super.textDidBeginEditing(notification)
-        isCurrentlyEditing = true
-        animateFocusGlow(isFocused: true)
-        
-        // Show full URL when editing starts (Safari-style)
-        if !fullURL.isEmpty {
-            stringValue = fullURL
-        }
-        
-        // Apply indentation and select all on next run loop (after text is set)
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            
-            // Apply text indentation to field editor
-            if self.hasLockIcon, let fieldEditor = self.currentEditor() as? NSTextView {
-                let paragraphStyle = NSMutableParagraphStyle()
-                paragraphStyle.firstLineHeadIndent = 30
-                paragraphStyle.headIndent = 30
-                
-                // Set typing attributes for the field editor
-                var typingAttributes = fieldEditor.typingAttributes
-                typingAttributes[.paragraphStyle] = paragraphStyle
-                fieldEditor.typingAttributes = typingAttributes
-                
-                // Apply to existing text storage
-                let range = NSRange(location: 0, length: fieldEditor.textStorage?.length ?? 0)
-                fieldEditor.textStorage?.addAttribute(.paragraphStyle, value: paragraphStyle, range: range)
-            }
-            
-            // Select all text
-            if let fieldEditor = self.currentEditor() as? NSTextView {
-                fieldEditor.selectAll(nil)
-            }
-        }
-    }
-    
-    override func textDidEndEditing(_ notification: Notification) {
-        super.textDidEndEditing(notification)
-        isCurrentlyEditing = false
-        animateFocusGlow(isFocused: false)
-        
-        // Show simplified URL when editing ends (Safari-style)
-        if !fullURL.isEmpty {
-            stringValue = simplifiedURL(from: fullURL)
-        }
-        
-        // Ensure indentation is preserved after editing
-        updateTextIndentation()
     }
 }
 
@@ -374,7 +385,7 @@ class WebViewController: NSViewController {
     private let backButton = HoverButton()
     private let forwardButton = HoverButton()
     private let reloadButton = HoverButton()
-    private let urlField = BrowserStyleTextField()
+    private let urlField = AddressBarTextView()
     private let lockIcon = NSImageView()  // HTTPS lock icon
     private let addressBarProgressView = AddressBarProgressView()
     private let newBubbleButton = HoverButton()
@@ -664,22 +675,11 @@ class WebViewController: NSViewController {
         
         NSLog("🎯 Address bar layout - X: \(xOffset), Available width: \(availableWidth), Final width: \(urlFieldWidth), Reload button ends at: \(xOffset - addressBarLeftMargin)")
         
-        urlField.placeholderString = "Search or enter website"
-        urlField.delegate = self
-        urlField.font = NSFont.systemFont(ofSize: 13, weight: .regular)
-        urlField.alignment = .left
-        
-        // Modern URL field styling - very rounded, clean look
-        urlField.isBezeled = true
-        urlField.bezelStyle = .roundedBezel  // Use native rounded bezel for proper centering
-        urlField.focusRingType = .none
+        urlField.addressBarDelegate = self
         urlField.wantsLayer = true
-        urlField.layer?.cornerRadius = 16  // Very rounded
+        urlField.layer?.cornerRadius = 16
         urlField.layer?.masksToBounds = true
-        urlField.clipsToBounds = true  // Ensure nothing draws outside bounds
         urlField.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.3)
-        
-        // Add subtle border
         urlField.layer?.borderWidth = 0.5
         urlField.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.3).cgColor
         
@@ -811,10 +811,7 @@ class WebViewController: NSViewController {
             forwardButton.isEnabled = webView.canGoForward
         } else if keyPath == #keyPath(WKWebView.url) {
             if let url = webView.url {
-                // Use setURL for Safari-style display (shows domain when not editing)
                 urlField.setURL(url.absoluteString)
-                // Apply indentation after setting URL (preserves lock icon spacing)
-                urlField.updateTextIndentation()
                 delegate?.webViewController(self, didUpdateURL: url.absoluteString)
                 // Update lock icon when URL changes
                 updateLockIcon()
@@ -1235,17 +1232,11 @@ class WebViewController: NSViewController {
     }
 }
 
-// MARK: - NSTextFieldDelegate
+// MARK: - AddressBarTextViewDelegate
 
-extension WebViewController: NSTextFieldDelegate {
-    func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
-        if commandSelector == #selector(NSResponder.insertNewline(_:)) {
-            // User pressed Enter - use getFullURL() to get what user typed or the stored URL
-            loadURL(urlField.getFullURL())
-            view.window?.makeFirstResponder(nil) // Dismiss keyboard focus
-            return true
-        }
-        return false
+extension WebViewController: AddressBarTextViewDelegate {
+    func addressBarDidSubmit(_ addressBar: AddressBarTextView, text: String) {
+        loadURL(urlField.getFullURL())
     }
 }
 
@@ -2260,24 +2251,15 @@ extension WebViewController {
             urlFieldBorderColor = NSColor.black.withAlphaComponent(0.15)
         }
         
-        // Apply URL field styling
         urlField.backgroundColor = urlFieldBackgroundColor
         urlField.textColor = urlFieldTextColor
         urlField.layer?.borderColor = urlFieldBorderColor.cgColor
-        
-        // Create placeholder with proper indentation if lock icon is visible
-        let paragraphStyle = NSMutableParagraphStyle()
-        if urlField.hasLockIcon {
-            paragraphStyle.firstLineHeadIndent = 30
-            paragraphStyle.headIndent = 30
-        }
         
         urlField.placeholderAttributedString = NSAttributedString(
             string: "Search or enter website",
             attributes: [
                 .foregroundColor: urlFieldTextColor.withAlphaComponent(0.5),
-                .font: NSFont.systemFont(ofSize: 13),
-                .paragraphStyle: paragraphStyle
+                .font: NSFont.systemFont(ofSize: 13)
             ]
         )
         
@@ -2323,24 +2305,15 @@ extension WebViewController {
         newBubbleButton.contentTintColor = defaultIconColor
         lockIcon.contentTintColor = defaultIconColor
         
-        // Reset URL field styling to default
         urlField.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.3)
         urlField.textColor = NSColor.labelColor
         urlField.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.3).cgColor
-        
-        // Create placeholder with proper indentation if lock icon is visible
-        let paragraphStyle = NSMutableParagraphStyle()
-        if urlField.hasLockIcon {
-            paragraphStyle.firstLineHeadIndent = 30
-            paragraphStyle.headIndent = 30
-        }
         
         urlField.placeholderAttributedString = NSAttributedString(
             string: "Search or enter website",
             attributes: [
                 .foregroundColor: NSColor.placeholderTextColor,
-                .font: NSFont.systemFont(ofSize: 13),
-                .paragraphStyle: paragraphStyle
+                .font: NSFont.systemFont(ofSize: 13)
             ]
         )
         

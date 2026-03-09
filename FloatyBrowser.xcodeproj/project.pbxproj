@@ -21,6 +21,7 @@
 		1A0064 /* PreferencesWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0065 /* PreferencesWindowController.swift */; };
 		1A0066 /* PreferencesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0067 /* PreferencesViewController.swift */; };
 		1A0070 /* SharedWebConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0071 /* SharedWebConfiguration.swift */; };
+		1A0090 /* ThemeColorUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0091 /* ThemeColorUtils.swift */; };
 		1A0080 /* HistoryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0081 /* HistoryManager.swift */; };
 		1A0082 /* HistoryWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0083 /* HistoryWindowController.swift */; };
 		E89C7BC52EBE131B006F99F2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E89C7BC42EBE131B006F99F2 /* Assets.xcassets */; };
@@ -54,6 +55,7 @@
 		1A0065 /* PreferencesWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesWindowController.swift; sourceTree = "<group>"; };
 		1A0067 /* PreferencesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesViewController.swift; sourceTree = "<group>"; };
 		1A0071 /* SharedWebConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedWebConfiguration.swift; sourceTree = "<group>"; };
+		1A0091 /* ThemeColorUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeColorUtils.swift; sourceTree = "<group>"; };
 		1A0081 /* HistoryManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryManager.swift; sourceTree = "<group>"; };
 		1A0083 /* HistoryWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryWindowController.swift; sourceTree = "<group>"; };
 		E89C7BC42EBE131B006F99F2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -97,6 +99,7 @@
 				1A0008 /* PanelWindow.swift */,
 				1A0010 /* WebViewController.swift */,
 				1A0071 /* SharedWebConfiguration.swift */,
+				1A0091 /* ThemeColorUtils.swift */,
 				1A0012 /* PersistenceManager.swift */,
 				1A0081 /* HistoryManager.swift */,
 				1A0083 /* HistoryWindowController.swift */,
@@ -234,6 +237,7 @@
 				1A0007 /* PanelWindow.swift in Sources */,
 				1A0009 /* WebViewController.swift in Sources */,
 				1A0070 /* SharedWebConfiguration.swift in Sources */,
+				1A0090 /* ThemeColorUtils.swift in Sources */,
 				1A0011 /* PersistenceManager.swift in Sources */,
 				1A0080 /* HistoryManager.swift in Sources */,
 				1A0082 /* HistoryWindowController.swift in Sources */,

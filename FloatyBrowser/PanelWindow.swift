@@ -92,10 +92,7 @@ class PanelWindow: NSPanel {
             defer: false
         )
         
-        NSLog("🎨 PanelWindow initialized with theme colors: \(useThemeColors)")
-        if configuration != nil {
-            NSLog("   ↳ Using external configuration (popup window)")
-        }
+        
         
         setupWindow()
         setupWebView(url: url, configuration: configuration)
@@ -214,7 +211,6 @@ class PanelWindow: NSPanel {
             solidView.wantsLayer = true
             solidView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor  // Start with default
             customControlBar = solidView
-            NSLog("✅ Created SOLID control bar (theme colors enabled)")
         } else {
             // Mode 2: Frosted glass vibrancy
             let visualEffectView = NSVisualEffectView(frame: NSRect(
@@ -229,7 +225,6 @@ class PanelWindow: NSPanel {
             visualEffectView.state = .active
             visualEffectView.wantsLayer = true
             customControlBar = visualEffectView
-            NSLog("✅ Created FROSTED GLASS control bar (theme colors disabled)")
         }
         
         var xOffset = margin
@@ -294,8 +289,6 @@ class PanelWindow: NSPanel {
         
         // Add control bar to window
         contentView.addSubview(customControlBar, positioned: .above, relativeTo: nil)
-        
-        NSLog("✅ Custom window controls added")
     }
     
     private func styleWindowButton(_ button: NSButton) {
@@ -360,95 +353,36 @@ class PanelWindow: NSPanel {
     // MARK: - Theme Color
     
     func applyThemeColorToControlBar(_ color: NSColor) {
-        guard useThemeColors else {
-            NSLog("⚠️ Theme colors disabled, not applying to control bar")
-            return
-        }
+        guard useThemeColors else { return }
         
-        // 90% opacity for top control bar (same as traffic light area)
         customControlBar.layer?.backgroundColor = color.withAlphaComponent(0.90).cgColor
         
-        // Adapt button icon colors for accessibility
-        adaptControlButtonColors(forBackgroundColor: color)
-        
-        NSLog("✅ Applied theme color to PanelWindow control bar: \(color) with 90% opacity")
-    }
-    
-    /// Adapt control button colors based on background color luminance
-    private func adaptControlButtonColors(forBackgroundColor backgroundColor: NSColor) {
-        guard let rgbColor = backgroundColor.usingColorSpace(.deviceRGB) else {
-            NSLog("⚠️ Could not convert background color to RGB for control buttons")
-            return
-        }
-        
-        // Calculate relative luminance (WCAG formula)
-        let red = rgbColor.redComponent
-        let green = rgbColor.greenComponent
-        let blue = rgbColor.blueComponent
-        let luminance = 0.299 * red + 0.587 * green + 0.114 * blue
-        
-        // Determine if background is light or dark
-        let isDarkBackground = luminance < 0.5
-        
-        // Choose appropriate icon color
-        let iconColor: NSColor
-        
-        if isDarkBackground {
-            // Light icons for dark backgrounds
-            iconColor = NSColor.white.withAlphaComponent(0.9)
-            NSLog("🎨 Control bar: Dark background → Using LIGHT icons")
-        } else {
-            // Dark icons for light backgrounds
-            iconColor = NSColor.black.withAlphaComponent(0.7)
-            NSLog("🎨 Control bar: Light background → Using DARK icons")
-        }
-        
-        // Apply to all control buttons
+        let iconColor = ThemeColorUtils.contrastingIconColor(for: color)
         closeWindowButton.contentTintColor = iconColor
         fullscreenButton.contentTintColor = iconColor
         minimizeToBubbleButton.contentTintColor = iconColor
-        
-        NSLog("✅ Control button colors adapted")
     }
     
-    /// Reset control button colors to default (for frosted glass mode)
     private func resetControlButtonColors() {
-        NSLog("🎨 Resetting control button colors to default")
-        
         let defaultIconColor = NSColor.secondaryLabelColor
-        
         closeWindowButton.contentTintColor = defaultIconColor
         fullscreenButton.contentTintColor = defaultIconColor
         minimizeToBubbleButton.contentTintColor = defaultIconColor
-        
-        NSLog("✅ Control button colors reset")
     }
     
     func handleThemeColorModeChanged(_ enabled: Bool) {
-        NSLog("📢 PanelWindow received theme color mode change: \(enabled)")
-        
-        // Update our mode
         useThemeColors = enabled
-        
-        // Swap the control bar
         swapCustomControlBar(toColoredMode: enabled)
         
-        // Re-apply color if we switched to colored mode, or reset if disabled
         if enabled {
-            // Ask WebViewController to apply the color
             webViewController.applyThemeColorForCurrentURL()
         } else {
-            // Reset control button colors to default (gray)
             resetControlButtonColors()
         }
-        
-        NSLog("✅ PanelWindow switched to \(enabled ? "COLORED" : "FROSTED GLASS") mode")
     }
     
     private func swapCustomControlBar(toColoredMode: Bool) {
         guard let contentView = contentView else { return }
-        
-        NSLog("🔄 Swapping custom control bar to \(toColoredMode ? "colored" : "frosted glass") mode")
         
         let controlBarHeight: CGFloat = 28
         let frame = NSRect(x: 0, y: contentView.bounds.height - controlBarHeight, width: contentView.bounds.width, height: controlBarHeight)
@@ -485,8 +419,6 @@ class PanelWindow: NSPanel {
         
         // Add control bar back to window
         contentView.addSubview(customControlBar, positioned: .above, relativeTo: nil)
-        
-        NSLog("✅ Custom control bar swapped")
     }
     
     // Calculate position to show panel near bubble but fully visible on screen

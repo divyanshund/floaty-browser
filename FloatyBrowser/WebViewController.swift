@@ -459,6 +459,15 @@ class HoverButton: NSButton {
     }
 }
 
+/// Weak wrapper to avoid retain cycles with WKUserContentController.
+private class WeakScriptMessageHandler: NSObject, WKScriptMessageHandler {
+    weak var delegate: WKScriptMessageHandler?
+    init(delegate: WKScriptMessageHandler) { self.delegate = delegate }
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+        delegate?.userContentController(controller, didReceive: message)
+    }
+}
+
 class WebViewController: NSViewController {
     private var _webView: WKWebView?
     var webView: WKWebView? { return _webView }
@@ -481,7 +490,10 @@ class WebViewController: NSViewController {
     
     // Theme color state
     private var currentThemeColor: NSColor?
+    private var currentThemeColorSource: ThemeColorSource?
     private var currentFavicon: NSImage?
+    private var extractionId: UUID?
+    private var pendingExtractions = 0
     
     // Current page title (for history)
     private var currentPageTitle: String = ""
@@ -502,11 +514,6 @@ class WebViewController: NSViewController {
     
     // Pending URL to load once webView is ready
     private var pendingURL: String?
-    
-    // Static regex for parsing RGB/RGBA colors (compiled once, reused across all instances)
-    private static let rgbColorRegex: NSRegularExpression? = {
-        try? NSRegularExpression(pattern: #"rgba?\((\d+),\s*(\d+),\s*(\d+)"#)
-    }()
     
     // Use shared configuration for session sharing across all bubbles
     private lazy var webConfiguration: WKWebViewConfiguration = {
@@ -563,10 +570,6 @@ class WebViewController: NSViewController {
         self.useThemeColors = AppearancePreferencesViewController.isThemeColorsEnabled()
         self.externalConfiguration = configuration
         super.init(nibName: nil, bundle: nil)
-        NSLog("🎨 WebViewController initialized with theme colors: \(useThemeColors)")
-        if configuration != nil {
-            NSLog("   ↳ Using external configuration (popup window)")
-        }
     }
     
     required init?(coder: NSCoder) {
@@ -574,7 +577,6 @@ class WebViewController: NSViewController {
         self.useThemeColors = AppearancePreferencesViewController.isThemeColorsEnabled()
         self.externalConfiguration = nil
         super.init(coder: coder)
-        NSLog("🎨 WebViewController initialized with theme colors: \(useThemeColors)")
     }
     
     override func loadView() {
@@ -653,7 +655,6 @@ class WebViewController: NSViewController {
             solidView.wantsLayer = true
             solidView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
             trafficLightArea = solidView
-            NSLog("✅ Created SOLID traffic light area (theme colors enabled)")
         } else {
             // Mode 2: Frosted glass vibrancy
             let visualEffectView = NSVisualEffectView(frame: NSRect(x: 0, y: view.bounds.height - trafficLightHeight, width: view.bounds.width, height: trafficLightHeight))
@@ -663,7 +664,6 @@ class WebViewController: NSViewController {
             visualEffectView.state = .active
             visualEffectView.alphaValue = 0.95
             trafficLightArea = visualEffectView
-            NSLog("✅ Created FROSTED GLASS traffic light area (theme colors disabled)")
         }
         view.addSubview(trafficLightArea)
         
@@ -675,7 +675,6 @@ class WebViewController: NSViewController {
             solidView.wantsLayer = true
             solidView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor  // Start with default, will be colored later
             toolbar = solidView
-            NSLog("✅ Created SOLID toolbar (theme colors enabled)")
         } else {
             // Mode 2: Frosted glass vibrancy
             let visualEffectView = NSVisualEffectView(frame: NSRect(x: 0, y: view.bounds.height - totalTopHeight, width: view.bounds.width, height: toolbarHeight))
@@ -685,7 +684,6 @@ class WebViewController: NSViewController {
             visualEffectView.state = .active
             visualEffectView.alphaValue = 0.95
             toolbar = visualEffectView
-            NSLog("✅ Created FROSTED GLASS toolbar (theme colors disabled)")
         }
         
         let buttonSize: CGFloat = 28  // Modern square buttons
@@ -756,8 +754,6 @@ class WebViewController: NSViewController {
         urlField.frame = NSRect(x: xOffset, y: urlFieldY, width: urlFieldWidth, height: urlFieldHeight)
         // No autoresizing - we'll handle layout manually to keep gap with plus button
         
-        NSLog("🎯 Address bar layout - X: \(xOffset), Available width: \(availableWidth), Final width: \(urlFieldWidth), Reload button ends at: \(xOffset - addressBarLeftMargin)")
-        
         urlField.addressBarDelegate = self
         urlField.wantsLayer = true
         urlField.layer?.cornerRadius = 16
@@ -822,26 +818,25 @@ class WebViewController: NSViewController {
     }
     
     private func setupWebView() {
-        // Total top space = traffic lights (30px) + toolbar (44px) = 74px
         let totalTopSpace: CGFloat = 74
         
-        let webView = WKWebView(frame: .zero, configuration: webConfiguration)
+        let config = webConfiguration
+        
+        // Inject SPA navigation observer (pushState/replaceState + meta theme-color mutations)
+        let spaScript = WKUserScript(source: Self.spaObserverScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        config.userContentController.addUserScript(spaScript)
+        config.userContentController.add(WeakScriptMessageHandler(delegate: self), name: "themeColorObserver")
+        
+        let webView = WKWebView(frame: .zero, configuration: config)
         _webView = webView
         
         webView.frame = NSRect(x: 0, y: 0, width: view.bounds.width, height: view.bounds.height - totalTopSpace)
         webView.autoresizingMask = [.width, .height]
         webView.navigationDelegate = self
         webView.uiDelegate = self
-        
-        // Allow keyboard events in WKWebView
         webView.allowsBackForwardNavigationGestures = true
-        
-        // Set custom user agent to identify as Safari on macOS
-        // Using Safari UA since WKWebView IS the Safari engine - more authentic than pretending to be Chrome
-        // This may help with sites like Google that detect embedded WebViews
         webView.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15"
         
-        // Add progress indicator (position it just below the toolbar)
         progressIndicator = NSProgressIndicator()
         progressIndicator.style = .bar
         progressIndicator.isIndeterminate = false
@@ -852,13 +847,34 @@ class WebViewController: NSViewController {
         view.addSubview(webView)
         view.addSubview(progressIndicator)
         
-        // Observe loading progress
         webView.addObserver(self, forKeyPath: #keyPath(WKWebView.estimatedProgress), options: .new, context: nil)
         webView.addObserver(self, forKeyPath: #keyPath(WKWebView.canGoBack), options: .new, context: nil)
         webView.addObserver(self, forKeyPath: #keyPath(WKWebView.canGoForward), options: .new, context: nil)
         webView.addObserver(self, forKeyPath: #keyPath(WKWebView.url), options: .new, context: nil)
         webView.addObserver(self, forKeyPath: #keyPath(WKWebView.title), options: .new, context: nil)
     }
+    
+    /// JavaScript injected at document-end to detect SPA route changes and
+    /// live meta theme-color updates, then post messages back to native code.
+    private static let spaObserverScript: String = """
+    (function() {
+        function notify(type, color) {
+            try { webkit.messageHandlers.themeColorObserver.postMessage({type: type, color: color || null}); } catch(e) {}
+        }
+        // Observe <meta name="theme-color"> additions and content changes
+        if (document.head) {
+            new MutationObserver(function() {
+                var meta = document.querySelector('meta[name="theme-color"]');
+                if (meta) notify('metaColorChanged', meta.getAttribute('content'));
+            }).observe(document.head, {childList: true, subtree: true, attributes: true, attributeFilter: ['content']});
+        }
+        // Hook pushState / replaceState
+        var origPush = history.pushState, origReplace = history.replaceState;
+        history.pushState = function() { origPush.apply(this, arguments); notify('navigation'); };
+        history.replaceState = function() { origReplace.apply(this, arguments); notify('navigation'); };
+        window.addEventListener('popstate', function() { notify('navigation'); });
+    })();
+    """
     
     override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
         // Safety check - ensure webView exists and view is loaded before accessing UI
@@ -1058,12 +1074,7 @@ class WebViewController: NSViewController {
     // by window visibility (orderOut/orderFront).
     
     private func fetchFavicon() {
-        NSLog("🎨 FloatyBrowser: Attempting to fetch favicon")
-        
-        guard let webView = _webView else {
-            NSLog("⚠️ WebView not available for favicon fetch")
-            return
-        }
+        guard let webView = _webView else { return }
         
         // JavaScript to extract the BEST favicon from the page
         // Priority: apple-touch-icon (180px) > large icons > any icon > /favicon.ico
@@ -1107,21 +1118,11 @@ class WebViewController: NSViewController {
         """
         
         webView.evaluateJavaScript(script) { [weak self] result, error in
-            if let error = error {
-                NSLog("❌ FloatyBrowser: Favicon JS error: \(error.localizedDescription)")
-                return
-            }
-            
-            guard let self = self,
+            guard error == nil,
+                  let self = self,
                   let urlString = result as? String,
-                  let url = URL(string: urlString) else {
-                NSLog("❌ FloatyBrowser: Invalid favicon URL")
-                return
-            }
+                  let url = URL(string: urlString) else { return }
             
-            NSLog("🎨 FloatyBrowser: Found favicon URL: \(url.absoluteString)")
-            
-            // Download favicon
             self.downloadFavicon(from: url)
         }
     }
@@ -1133,29 +1134,24 @@ class WebViewController: NSViewController {
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             guard let self = self else { return }
             
-            if let error = error {
-                NSLog("❌ FloatyBrowser: Favicon download error: \(error.localizedDescription)")
-                return
-            }
+            guard error == nil,
+                  let data = data, !data.isEmpty,
+                  let image = NSImage(data: data) else { return }
             
-            guard let data = data, !data.isEmpty else {
-                NSLog("❌ FloatyBrowser: Favicon data is empty")
-                return
-            }
-            
-            guard let image = NSImage(data: data) else {
-                NSLog("❌ FloatyBrowser: Failed to create NSImage from favicon data")
-                return
-            }
-            
-            NSLog("✅ FloatyBrowser: Successfully loaded favicon")
-            
-            // Store favicon for color extraction
             self.currentFavicon = image
             
-            // Update on main thread
             DispatchQueue.main.async {
                 self.delegate?.webViewController(self, didUpdateFavicon: image)
+                
+                // If theme colors are on and no higher-priority source provided a color,
+                // try extracting from the freshly-loaded favicon.
+                if self.useThemeColors && self.currentThemeColorSource == nil {
+                    self.extractColorFromFavicon { [weak self] color in
+                        if let color = color {
+                            self?.proposeThemeColor(color, from: .favicon)
+                        }
+                    }
+                }
             }
         }.resume()
     }
@@ -1177,34 +1173,25 @@ class WebViewController: NSViewController {
     @objc private func themeColorModeChanged(_ notification: Notification) {
         guard let enabled = notification.userInfo?["enabled"] as? Bool else { return }
         
-        NSLog("📢 WebViewController received theme color mode change: \(enabled)")
-        
-        // Update our mode
         useThemeColors = enabled
         
-        // Swap the views
         swapToolbarViews(toColoredMode: enabled)
         swapTrafficLightAreaViews(toColoredMode: enabled)
         
-        // Re-apply colors if we switched to colored mode, or reset to default
         if enabled {
-            applyThemeColorForCurrentURL()
+            startThemeColorExtraction()
         } else {
-            // Reset to default icon colors (gray icons for frosted glass)
-            resetToDefaultIconColors()
+            currentThemeColor = nil
+            currentThemeColorSource = nil
+            resetToFrostedGlassDefaults()
         }
         
-        // Notify PanelWindow if we're in one
         if let panelWindow = view.window as? PanelWindow {
             panelWindow.handleThemeColorModeChanged(enabled)
         }
-        
-        NSLog("✅ Successfully switched to \(enabled ? "COLORED" : "FROSTED GLASS") mode")
     }
     
     private func swapToolbarViews(toColoredMode: Bool) {
-        NSLog("🔄 Swapping toolbar to \(toColoredMode ? "colored" : "frosted glass") mode")
-        
         let trafficLightHeight: CGFloat = 30
         let toolbarHeight: CGFloat = 44
         let totalTopHeight = trafficLightHeight + toolbarHeight
@@ -1242,12 +1229,9 @@ class WebViewController: NSViewController {
         
         // Add toolbar back
         view.addSubview(toolbar)
-        
-        NSLog("✅ Toolbar swapped")
     }
     
     private func swapTrafficLightAreaViews(toColoredMode: Bool) {
-        NSLog("🔄 Swapping traffic light area to \(toColoredMode ? "colored" : "frosted glass") mode")
         
         let trafficLightHeight: CGFloat = 30
         let frame = NSRect(x: 0, y: view.bounds.height - trafficLightHeight, width: view.bounds.width, height: trafficLightHeight)
@@ -1284,8 +1268,6 @@ class WebViewController: NSViewController {
         
         // Add traffic light area back
         view.addSubview(trafficLightArea)
-        
-        NSLog("✅ Traffic light area swapped")
     }
     
     // MARK: - Network Error Detection
@@ -1386,57 +1368,28 @@ extension WebViewController: WKNavigationDelegate {
     }
     
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
-        // Safety check: ensure this is our webView and we haven't been deallocated
-        guard webView === _webView else {
-            NSLog("⚠️ didCommit called with wrong webView, ignoring")
-            return
-        }
-        
-        NSLog("📍 Page committed (started loading): \(webView.url?.absoluteString ?? "unknown")")
-        
-        // Reset to default colors immediately when navigating to a new page
-        // This ensures text is always visible during the transition
-        // Only do this if the view is loaded and toolbar exists
-        if useThemeColors && isViewLoaded {
-            resetToDefaultIconColors()
-        }
+        guard webView === _webView else { return }
+        // Keep current theme color during transition — no flash to defaults.
+        // The new color will be applied by startThemeColorExtraction in didFinish.
     }
     
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        // Safety check: ensure this is our webView
-        guard webView === _webView else {
-            NSLog("⚠️ didFinish called with wrong webView, ignoring")
-            return
-        }
-        
-        // Safety check: ensure view is loaded before accessing UI elements
-        guard isViewLoaded else {
-            NSLog("⚠️ didFinish called before view loaded, ignoring")
-            return
-        }
+        guard webView === _webView, isViewLoaded else { return }
         
         progressIndicator.isHidden = true
-        
-        // Update lock icon based on URL scheme
         updateLockIcon()
         
-        // Record history (skip for popup windows to avoid duplicates)
         if !isPopupWindow, let url = webView.url {
             let title = webView.title ?? currentPageTitle
             HistoryManager.shared.recordVisit(url: url.absoluteString, title: title)
         }
         
-        // Fetch favicon after page fully loads
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             self?.fetchFavicon()
         }
         
-        // Extract and apply theme colors if enabled
         if useThemeColors {
-            // Reset to default colors immediately to ensure text is visible
-            // The async extraction will update colors once complete
-            resetToDefaultIconColors()
-            extractAndApplyThemeColor()
+            startThemeColorExtraction()
         }
     }
     
@@ -1771,69 +1724,53 @@ extension WebViewController: ASWebAuthenticationPresentationContextProviding {
 // MARK: - Theme Color Management
 
 extension WebViewController {
-    /// Main orchestrator - tries extraction methods in priority order
-    func extractAndApplyThemeColor() {
-        guard useThemeColors else {
-            return
-        }
-        
-        guard let url = _webView?.url, let host = url.host else {
+    
+    // MARK: Extraction Orchestration
+    
+    /// Kick off parallel extraction from header, meta tag, and manifest.
+    /// Favicon is handled separately when it loads (see downloadFavicon).
+    func startThemeColorExtraction() {
+        guard useThemeColors else { return }
+        guard let url = _webView?.url, url.host != nil else {
             applyDefaultThemeColor()
             return
         }
         
-        NSLog("🎨 Extracting theme color for: \(host)")
+        let thisExtraction = UUID()
+        extractionId = thisExtraction
+        currentThemeColorSource = nil
+        pendingExtractions = 3
         
-        // Priority 1: Header/Nav color (visual accuracy)
         extractColorFromHeader { [weak self] color in
-            guard let self = self else { return }
-            
-            if let color = color {
-                NSLog("✅ Theme color (header): \(color)")
-                self.currentThemeColor = color
-                self.applyThemeColor(color)
-                return
-            }
-            
-            // Priority 2: Meta tag
-            self.extractColorFromMetaTag { [weak self] color in
-                guard let self = self else { return }
-                
-                if let color = color {
-                    NSLog("✅ Theme color (meta tag): \(color)")
-                    self.currentThemeColor = color
-                    self.applyThemeColor(color)
-                    return
-                }
-                
-                // Priority 3: Web manifest
-                self.extractColorFromManifest { [weak self] color in
-                    guard let self = self else { return }
-                    
-                    if let color = color {
-                        NSLog("✅ Theme color (manifest): \(color)")
-                        self.currentThemeColor = color
-                        self.applyThemeColor(color)
-                        return
-                    }
-                    
-                    // Priority 4: Favicon dominant color
-                    self.extractColorFromFavicon { [weak self] color in
-                        guard let self = self else { return }
-                        
-                        if let color = color {
-                            NSLog("✅ Theme color (favicon): \(color)")
-                            self.currentThemeColor = color
-                            self.applyThemeColor(color)
-                            return
-                        }
-                        
-                        NSLog("⚠️ No valid theme color found, using default")
-                        self.applyDefaultThemeColor()
-                    }
-                }
-            }
+            guard self?.extractionId == thisExtraction else { return }
+            self?.handleExtractionResult(color, from: .header)
         }
+        extractColorFromMetaTag { [weak self] color in
+            guard self?.extractionId == thisExtraction else { return }
+            self?.handleExtractionResult(color, from: .metaTag)
+        }
+        extractColorFromManifest { [weak self] color in
+            guard self?.extractionId == thisExtraction else { return }
+            self?.handleExtractionResult(color, from: .manifest)
+        }
+    }
+    
+    private func handleExtractionResult(_ color: NSColor?, from source: ThemeColorSource) {
+        if let color = color {
+            proposeThemeColor(color, from: source)
+        }
+        pendingExtractions -= 1
+        if pendingExtractions <= 0 && currentThemeColorSource == nil {
+            applyDefaultThemeColor()
+        }
+    }
+    
+    /// Accept a color only if it outranks the current source.
+    func proposeThemeColor(_ color: NSColor, from source: ThemeColorSource) {
+        if let existing = currentThemeColorSource, source < existing { return }
+        currentThemeColorSource = source
+        currentThemeColor = color
+        applyThemeColor(color)
     }
     
     /// Extract color from header/nav bar background (Priority 1 - visual accuracy)
@@ -1913,30 +1850,18 @@ extension WebViewController {
             return
         }
         
-        webView.evaluateJavaScript(script) { [weak self] result, error in
-            if let error = error {
-                NSLog("⚠️ Header extraction error: \(error.localizedDescription)")
+        webView.evaluateJavaScript(script) { result, error in
+            guard error == nil,
+                  let colorString = result as? String,
+                  let raw = ThemeColorUtils.parseColor(from: colorString),
+                  let processed = ThemeColorUtils.processExtractedColor(raw) else {
                 completion(nil)
                 return
             }
-            
-            guard let colorString = result as? String,
-                  let color = self?.parseColor(from: colorString) else {
-                completion(nil)
-                return
-            }
-            
-            // Flatten color for modern look and validate quality
-            let flattenedColor = self?.flattenColor(color) ?? color
-            if let validColor = self?.validateColorQuality(flattenedColor) {
-                completion(validColor)
-            } else {
-                completion(nil)
-            }
+            completion(processed)
         }
     }
     
-    /// Extract color from <meta name="theme-color">
     private func extractColorFromMetaTag(completion: @escaping (NSColor?) -> Void) {
         let script = """
         (function() {
@@ -1950,25 +1875,18 @@ extension WebViewController {
             return
         }
         
-        webView.evaluateJavaScript(script) { [weak self] result, error in
+        webView.evaluateJavaScript(script) { result, error in
             guard error == nil,
                   let colorString = result as? String,
-                  let color = self?.parseColor(from: colorString) else {
+                  let raw = ThemeColorUtils.parseColor(from: colorString),
+                  let processed = ThemeColorUtils.processExtractedColor(raw) else {
                 completion(nil)
                 return
             }
-            
-            // Flatten color for modern look and validate quality
-            let flattenedColor = self?.flattenColor(color) ?? color
-            if let validColor = self?.validateColorQuality(flattenedColor) {
-                completion(validColor)
-            } else {
-                completion(nil)
-            }
+            completion(processed)
         }
     }
     
-    /// Extract color from web app manifest.json
     private func extractColorFromManifest(completion: @escaping (NSColor?) -> Void) {
         let script = """
         (function() {
@@ -1983,17 +1901,10 @@ extension WebViewController {
         }
         
         webView.evaluateJavaScript(script) { [weak self] result, error in
-            if let error = error {
-                NSLog("❌ Error finding manifest: \(error.localizedDescription)")
+            guard error == nil, let manifestURL = result as? String else {
                 completion(nil)
                 return
             }
-            
-            guard let manifestURL = result as? String else {
-                completion(nil)
-                return
-            }
-            
             self?.fetchManifestColor(from: manifestURL, completion: completion)
         }
     }
@@ -2004,297 +1915,93 @@ extension WebViewController {
             return
         }
         
-        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
-            if let error = error {
-                NSLog("❌ Error fetching manifest: \(error.localizedDescription)")
-                completion(nil)
+        URLSession.shared.dataTask(with: url) { data, _, error in
+            guard error == nil, let data = data else {
+                DispatchQueue.main.async { completion(nil) }
                 return
             }
             
-            guard let data = data else {
-                completion(nil)
-                return
+            var result: NSColor?
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let colorStr = json["theme_color"] as? String,
+               let raw = ThemeColorUtils.parseColor(from: colorStr) {
+                result = ThemeColorUtils.processExtractedColor(raw)
             }
-            
-            do {
-                if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let themeColor = json["theme_color"] as? String {
-                    NSLog("🎨 Manifest color string: '\(themeColor)'")
-                    let color = self?.parseColor(from: themeColor)
-                    
-                    if let color = color {
-                        // Flatten color for modern look
-                        let flattenedColor = self?.flattenColor(color) ?? color
-                        
-                        // Validate color quality
-                        if let validColor = self?.validateColorQuality(flattenedColor) {
-                            NSLog("✅ Manifest color passed quality check")
-                            completion(validColor)
-                            return
-                        } else {
-                            NSLog("⚠️ Manifest color failed quality check, skipping")
-                        }
-                    }
-                }
-            } catch {
-                NSLog("❌ Error parsing manifest JSON: \(error.localizedDescription)")
-            }
-            
-            completion(nil)
+            DispatchQueue.main.async { completion(result) }
         }.resume()
     }
     
-    /// Extract dominant color from favicon
     private func extractColorFromFavicon(completion: @escaping (NSColor?) -> Void) {
         guard let favicon = currentFavicon else {
-            NSLog("⚠️ No favicon available for color extraction")
             completion(nil)
             return
         }
         
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let color = self?.getDominantColor(from: favicon)
-            DispatchQueue.main.async {
-                completion(color)
-            }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let color = Self.getDominantColor(from: favicon)
+            DispatchQueue.main.async { completion(color) }
         }
     }
     
-    /// Extract dominant color from image using pixel sampling and color quantization
-    private func getDominantColor(from image: NSImage) -> NSColor? {
+    // MARK: Dominant Color Extraction
+    
+    /// Pixel-sample an image and return the most common non-extreme color,
+    /// processed through flatten + validate.
+    private static func getDominantColor(from image: NSImage) -> NSColor? {
         guard let tiffData = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData) else {
-            return nil
-        }
+              let bitmap = NSBitmapImageRep(data: tiffData) else { return nil }
         
         var colorCounts: [String: Int] = [:]
-        let pixelCount = bitmap.pixelsWide * bitmap.pixelsHigh
-        let sampleRate = max(1, pixelCount / 1000) // Sample ~1000 pixels
+        // Stride per axis so we get roughly sqrt(1000) samples per dimension
+        let side = max(1, Int(sqrt(Double(max(bitmap.pixelsWide, bitmap.pixelsHigh)))))
+        let strideX = max(1, bitmap.pixelsWide / side)
+        let strideY = max(1, bitmap.pixelsHigh / side)
         
-        for y in stride(from: 0, to: bitmap.pixelsHigh, by: sampleRate) {
-            for x in stride(from: 0, to: bitmap.pixelsWide, by: sampleRate) {
-                guard let pixelColor = bitmap.colorAt(x: x, y: y) else { continue }
+        for y in stride(from: 0, to: bitmap.pixelsHigh, by: strideY) {
+            for x in stride(from: 0, to: bitmap.pixelsWide, by: strideX) {
+                guard let px = bitmap.colorAt(x: x, y: y),
+                      let rgb = px.usingColorSpace(.deviceRGB) else { continue }
                 
-                // Convert to RGB color space
-                guard let rgbColor = pixelColor.usingColorSpace(.deviceRGB) else { continue }
+                let r = rgb.redComponent, g = rgb.greenComponent, b = rgb.blueComponent
+                if rgb.alphaComponent < 0.5 { continue }
                 
-                let red = rgbColor.redComponent
-                let green = rgbColor.greenComponent
-                let blue = rgbColor.blueComponent
-                let alpha = rgbColor.alphaComponent
+                let lum = 0.299 * r + 0.587 * g + 0.114 * b
+                if lum > 0.95 || lum < 0.05 { continue }
                 
-                // Skip transparent pixels
-                if alpha < 0.5 { continue }
-                
-                // Skip near-white pixels (luminance > 0.95)
-                let luminance = 0.299 * red + 0.587 * green + 0.114 * blue
-                if luminance > 0.95 { continue }
-                
-                // Skip near-black pixels (luminance < 0.05)
-                if luminance < 0.05 { continue }
-                
-                // Quantize to reduce color space (bucket by 0.05)
-                let quantizedR = (red * 20).rounded() / 20
-                let quantizedG = (green * 20).rounded() / 20
-                let quantizedB = (blue * 20).rounded() / 20
-                
-                let key = "\(quantizedR),\(quantizedG),\(quantizedB)"
-                colorCounts[key, default: 0] += 1
+                let qR = (r * 20).rounded() / 20
+                let qG = (g * 20).rounded() / 20
+                let qB = (b * 20).rounded() / 20
+                colorCounts["\(qR),\(qG),\(qB)", default: 0] += 1
             }
         }
         
-        // Find most common color
-        guard let mostCommon = colorCounts.max(by: { $0.value < $1.value }) else {
-            return nil
-        }
+        guard let best = colorCounts.max(by: { $0.value < $1.value }) else { return nil }
+        let c = best.key.split(separator: ",").compactMap { Double($0) }
+        guard c.count == 3 else { return nil }
         
-        let components = mostCommon.key.split(separator: ",").compactMap { Double($0) }
-        guard components.count == 3 else { return nil }
-        
-        var dominantColor = NSColor(
-            red: CGFloat(components[0]),
-            green: CGFloat(components[1]),
-            blue: CGFloat(components[2]),
-            alpha: 1.0
-        )
-        
-        // Flatten color for modern, subtle appearance
-        dominantColor = flattenColor(dominantColor)
-        
-        NSLog("🎨 Extracted dominant color: R:\(components[0]) G:\(components[1]) B:\(components[2])")
-        
-        // Validate the extracted color (already filtered during extraction, but double-check)
-        return validateColorQuality(dominantColor)
+        let raw = NSColor(red: CGFloat(c[0]), green: CGFloat(c[1]), blue: CGFloat(c[2]), alpha: 1.0)
+        return ThemeColorUtils.processExtractedColor(raw)
     }
     
-    /// Flatten color for modern, subtle appearance
-    /// Makes colors less saturated and more pleasant to look at
-    private func flattenColor(_ color: NSColor) -> NSColor {
-        guard let rgbColor = color.usingColorSpace(.deviceRGB) else { return color }
-        
-        var hue: CGFloat = 0
-        var saturation: CGFloat = 0
-        var brightness: CGFloat = 0
-        var alpha: CGFloat = 0
-        
-        NSColor(red: rgbColor.redComponent,
-                green: rgbColor.greenComponent,
-                blue: rgbColor.blueComponent,
-                alpha: rgbColor.alphaComponent).getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
-        
-        // Reduce saturation to max 50% for a flatter, modern look
-        let flattenedSaturation = min(saturation, 0.5)
-        
-        // Slightly brighten very dark colors for better visibility
-        var adjustedBrightness = brightness
-        if brightness < 0.3 {
-            adjustedBrightness = min(1.0, brightness + 0.15)
-        }
-        
-        NSLog("🎨 Flattening color - Original S:\(saturation) B:\(brightness) → New S:\(flattenedSaturation) B:\(adjustedBrightness)")
-        
-        return NSColor(hue: hue, saturation: flattenedSaturation, brightness: adjustedBrightness, alpha: alpha)
-    }
+    // MARK: Color Application
     
-    /// Validate color quality - only reject pure black
-    /// White colors are now allowed!
-    private func validateColorQuality(_ color: NSColor) -> NSColor? {
-        guard let rgbColor = color.usingColorSpace(.deviceRGB) else {
-            NSLog("⚠️ Could not convert color to RGB for quality check")
-            return nil
-        }
-        
-        let red = rgbColor.redComponent
-        let green = rgbColor.greenComponent
-        let blue = rgbColor.blueComponent
-        
-        // Calculate relative luminance (WCAG formula)
-        let luminance = 0.299 * red + 0.587 * green + 0.114 * blue
-        
-        NSLog("🔍 Color luminance: \(luminance)")
-        
-        // Only reject pure black (luminance < 0.03)
-        if luminance < 0.03 {
-            NSLog("❌ Rejected: too dark (luminance \(luminance) < 0.03)")
-            return nil
-        }
-        
-        NSLog("✅ Color quality OK: \(luminance)")
-        return color
-    }
-    
-    /// Parse color string from various formats (#RGB, #RRGGBB, rgb(), rgba())
-    private func parseColor(from string: String) -> NSColor? {
-        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
-        NSLog("🔍 Parsing color: '\(trimmed)'")
-        
-        // Handle hex colors (#RGB or #RRGGBB)
-        if trimmed.hasPrefix("#") {
-            let hex = String(trimmed.dropFirst())
-            NSLog("🔍 Detected hex color: '\(hex)'")
-            
-            if hex.count == 3 {
-                // #RGB -> #RRGGBB
-                let r = String(repeating: hex[hex.startIndex], count: 2)
-                let g = String(repeating: hex[hex.index(hex.startIndex, offsetBy: 1)], count: 2)
-                let b = String(repeating: hex[hex.index(hex.startIndex, offsetBy: 2)], count: 2)
-                let expanded = r + g + b
-                NSLog("🔍 Expanded #RGB to #RRGGBB: \(expanded)")
-                return parseHexColor(expanded)
-            } else if hex.count == 6 {
-                NSLog("🔍 Parsing 6-digit hex: \(hex)")
-                return parseHexColor(hex)
-            } else {
-                NSLog("❌ Invalid hex length: \(hex.count)")
-            }
-        }
-        
-        // Handle rgb() or rgba()
-        if trimmed.hasPrefix("rgb") {
-            NSLog("🔍 Detected rgb/rgba format")
-            // Use pre-compiled static regex for better performance
-            if let regex = Self.rgbColorRegex,
-               let match = regex.firstMatch(in: trimmed, range: NSRange(trimmed.startIndex..., in: trimmed)) {
-                
-                let r = (trimmed as NSString).substring(with: match.range(at: 1))
-                let g = (trimmed as NSString).substring(with: match.range(at: 2))
-                let b = (trimmed as NSString).substring(with: match.range(at: 3))
-                
-                NSLog("🔍 RGB values: R=\(r) G=\(g) B=\(b)")
-                
-                if let red = Int(r), let green = Int(g), let blue = Int(b) {
-                    return NSColor(
-                        red: CGFloat(red) / 255.0,
-                        green: CGFloat(green) / 255.0,
-                        blue: CGFloat(blue) / 255.0,
-                        alpha: 1.0
-                    )
-                }
-            }
-        }
-        
-        NSLog("❌ Could not parse color: '\(trimmed)'")
-        return nil
-    }
-    
-    private func parseHexColor(_ hex: String) -> NSColor? {
-        guard hex.count == 6 else {
-            NSLog("❌ parseHexColor: Invalid length \(hex.count), expected 6")
-            return nil
-        }
-        
-        let scanner = Scanner(string: hex)
-        var hexNumber: UInt64 = 0
-        
-        if scanner.scanHexInt64(&hexNumber) {
-            let r = CGFloat((hexNumber & 0xFF0000) >> 16) / 255.0
-            let g = CGFloat((hexNumber & 0x00FF00) >> 8) / 255.0
-            let b = CGFloat(hexNumber & 0x0000FF) / 255.0
-            
-            NSLog("✅ parseHexColor: \(hex) -> R:\(r) G:\(g) B:\(b)")
-            
-            return NSColor(red: r, green: g, blue: b, alpha: 1.0)
-        }
-        
-        NSLog("❌ parseHexColor: Failed to scan hex: \(hex)")
-        return nil
-    }
-    
-    /// Apply extracted theme color to all UI elements
     private func applyThemeColor(_ color: NSColor) {
-        guard useThemeColors else {
-            NSLog("⚠️ Theme colors disabled, not applying")
-            return
-        }
+        guard useThemeColors else { return }
         
-        NSLog("🎨 Applying theme color: \(color)")
-        
-        // Apply to toolbar (85% opacity)
         toolbar.layer?.backgroundColor = color.withAlphaComponent(0.85).cgColor
-        
-        // Apply to traffic light area (90% opacity)
         trafficLightArea.layer?.backgroundColor = color.withAlphaComponent(0.90).cgColor
         
-        // Apply to PanelWindow's custom control bar if we're in a panel
         if let panelWindow = view.window as? PanelWindow {
             panelWindow.applyThemeColorToControlBar(color)
         }
         
-        // Adapt icon and text colors for accessibility
         adaptUIElementColors(forBackgroundColor: color)
-        
-        NSLog("✅ Theme color applied successfully")
     }
     
-    /// Reset to default gray theme
     private func applyDefaultThemeColor() {
         guard useThemeColors else { return }
         
-        NSLog("🎨 Applying default theme color (gray)")
-        
         let defaultColor = NSColor(white: 0.95, alpha: 1.0)
-        
-        // Apply default with opacity
         toolbar.layer?.backgroundColor = defaultColor.withAlphaComponent(0.85).cgColor
         trafficLightArea.layer?.backgroundColor = defaultColor.withAlphaComponent(0.90).cgColor
         
@@ -2302,81 +2009,38 @@ extension WebViewController {
             panelWindow.applyThemeColorToControlBar(defaultColor)
         }
         
-        // Adapt icon and text colors for accessibility
         adaptUIElementColors(forBackgroundColor: defaultColor)
-        
         currentThemeColor = nil
+        currentThemeColorSource = nil
     }
     
-    /// Adapt icon and text colors based on background color luminance
-    /// Ensures proper contrast and accessibility
+    /// Adapt all toolbar UI elements for contrast against the given background.
+    /// Uses ThemeColorUtils for consistent icon and URL-field color derivation.
     private func adaptUIElementColors(forBackgroundColor backgroundColor: NSColor) {
-        guard let rgbColor = backgroundColor.usingColorSpace(.deviceRGB) else {
-            NSLog("⚠️ Could not convert background color to RGB")
-            return
-        }
+        let iconColor = ThemeColorUtils.contrastingIconColor(for: backgroundColor)
         
-        // Calculate relative luminance (WCAG formula)
-        let red = rgbColor.redComponent
-        let green = rgbColor.greenComponent
-        let blue = rgbColor.blueComponent
-        let luminance = 0.299 * red + 0.587 * green + 0.114 * blue
-        
-        // Determine if toolbar background is light or dark
-        // Use a slightly lower threshold (0.45) to bias toward light icons on mid-tones
-        let isDarkToolbar = luminance < 0.45
-        
-        // Choose icon color based on toolbar background
-        let iconColor: NSColor
-        if isDarkToolbar {
-            iconColor = NSColor.white.withAlphaComponent(0.9)
-            NSLog("🎨 Dark toolbar (luminance: \(luminance)) → Light icons")
-        } else {
-            iconColor = NSColor.black.withAlphaComponent(0.7)
-            NSLog("🎨 Light toolbar (luminance: \(luminance)) → Dark icons")
-        }
-        
-        // Apply to navigation buttons
         backButton.contentTintColor = iconColor
         forwardButton.contentTintColor = iconColor
         reloadButton.contentTintColor = iconColor
         newBubbleButton.contentTintColor = iconColor
         lockIcon.contentTintColor = iconColor
         
-        // URL field styling: Create contrasting background for readability
-        // The URL field needs its own background that works regardless of toolbar color
-        let urlFieldBackgroundColor: NSColor
-        let urlFieldTextColor: NSColor
-        let urlFieldBorderColor: NSColor
-        
-        if isDarkToolbar {
-            // Dark toolbar → Slightly lighter URL field for subtle contrast
-            urlFieldBackgroundColor = NSColor.white.withAlphaComponent(0.1)
-            urlFieldTextColor = NSColor.white.withAlphaComponent(0.9)
-            urlFieldBorderColor = NSColor.white.withAlphaComponent(0.2)
-        } else {
-            // Light toolbar → Darker URL field for contrast
-            urlFieldBackgroundColor = NSColor.black.withAlphaComponent(0.08)
-            urlFieldTextColor = NSColor.black.withAlphaComponent(0.85)
-            urlFieldBorderColor = NSColor.black.withAlphaComponent(0.15)
-        }
-        
-        urlField.backgroundColor = urlFieldBackgroundColor
-        urlField.textColor = urlFieldTextColor
-        urlField.layer?.borderColor = urlFieldBorderColor.cgColor
+        let urlColors = ThemeColorUtils.urlFieldColors(for: backgroundColor)
+        urlField.backgroundColor = urlColors.background
+        urlField.textColor = urlColors.text
+        urlField.layer?.borderColor = urlColors.border.cgColor
         
         urlField.placeholderAttributedString = NSAttributedString(
             string: "Search or enter website",
             attributes: [
-                .foregroundColor: urlFieldTextColor.withAlphaComponent(0.5),
+                .foregroundColor: urlColors.placeholder,
                 .font: NSFont.systemFont(ofSize: 13)
             ]
         )
-        
-        NSLog("✅ UI elements adapted for accessibility")
     }
     
-    /// Update lock icon visibility and color based on URL scheme
+    // MARK: Mode Resets
+    
     private func updateLockIcon() {
         guard let url = _webView?.url else {
             lockIcon.isHidden = true
@@ -2384,31 +2048,19 @@ extension WebViewController {
             return
         }
         
-        if url.scheme == "https" {
-            // HTTPS - show lock icon
-            lockIcon.isHidden = false
-            urlField.hasLockIcon = true
+        let isSecure = url.scheme == "https"
+        lockIcon.isHidden = !isSecure
+        urlField.hasLockIcon = isSecure
+        if isSecure {
             lockIcon.image = NSImage(systemSymbolName: "lock.fill", accessibilityDescription: "Secure")
-            NSLog("🔒 HTTPS detected - showing lock icon")
-        } else {
-            // HTTP or other - hide lock icon
-            lockIcon.isHidden = true
-            urlField.hasLockIcon = false
-            NSLog("🔓 Non-HTTPS URL - hiding lock icon")
         }
-        
-        // Update lock icon color to match current icon color
         lockIcon.contentTintColor = backButton.contentTintColor
     }
     
-    /// Reset icon and text colors to default (for frosted glass mode)
-    private func resetToDefaultIconColors() {
-        NSLog("🎨 Resetting to default icon colors (frosted glass mode)")
-        
-        // Default system colors (gray icons)
+    /// Reset to system defaults for frosted-glass (non-themed) mode.
+    private func resetToFrostedGlassDefaults() {
         let defaultIconColor = NSColor.secondaryLabelColor
         
-        // Reset navigation buttons
         backButton.contentTintColor = defaultIconColor
         forwardButton.contentTintColor = defaultIconColor
         reloadButton.contentTintColor = defaultIconColor
@@ -2426,18 +2078,43 @@ extension WebViewController {
                 .font: NSFont.systemFont(ofSize: 13)
             ]
         )
-        
-        NSLog("✅ Default icon colors restored")
     }
     
-    /// Called when theme color mode is toggled in preferences
+    /// Called when theme color mode is toggled in preferences.
     func applyThemeColorForCurrentURL() {
         if useThemeColors {
-            // Re-extract for current page
-            extractAndApplyThemeColor()
+            startThemeColorExtraction()
         } else {
-            // Clear colors when disabled
             currentThemeColor = nil
+            currentThemeColorSource = nil
+        }
+    }
+}
+
+// MARK: - SPA Navigation Message Handler
+
+extension WebViewController: WKScriptMessageHandler {
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.name == "themeColorObserver",
+              let body = message.body as? [String: Any],
+              let type = body["type"] as? String else { return }
+        
+        guard useThemeColors else { return }
+        
+        switch type {
+        case "metaColorChanged":
+            if let colorStr = body["color"] as? String,
+               let raw = ThemeColorUtils.parseColor(from: colorStr),
+               let processed = ThemeColorUtils.processExtractedColor(raw) {
+                proposeThemeColor(processed, from: .metaTag)
+            }
+        case "navigation":
+            // SPA route change — re-extract after the DOM settles
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                self?.startThemeColorExtraction()
+            }
+        default:
+            break
         }
     }
 }

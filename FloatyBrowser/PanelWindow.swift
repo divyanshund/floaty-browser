@@ -355,7 +355,11 @@ class PanelWindow: NSPanel {
     func applyThemeColorToControlBar(_ color: NSColor) {
         guard useThemeColors else { return }
         
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(0.25)
+        CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeInEaseOut))
         customControlBar.layer?.backgroundColor = color.withAlphaComponent(0.90).cgColor
+        CATransaction.commit()
         
         let iconColor = ThemeColorUtils.contrastingIconColor(for: color)
         closeWindowButton.contentTintColor = iconColor

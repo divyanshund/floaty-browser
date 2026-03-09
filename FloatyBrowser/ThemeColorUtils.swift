@@ -9,10 +9,11 @@
 import Cocoa
 
 enum ThemeColorSource: Int, Comparable {
-    case favicon = 0
-    case manifest = 1
-    case metaTag = 2
-    case header = 3
+    case bodyBackground = 0
+    case favicon = 1
+    case manifest = 2
+    case metaTag = 3
+    case header = 4
 
     static func < (lhs: Self, rhs: Self) -> Bool {
         lhs.rawValue < rhs.rawValue
@@ -111,7 +112,7 @@ struct ThemeColorUtils {
         NSColor(red: rgb.redComponent, green: rgb.greenComponent, blue: rgb.blueComponent, alpha: rgb.alphaComponent)
             .getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
 
-        let flatSat = min(saturation, 0.5)
+        let flatSat = min(saturation * 0.7, 0.65)
         var adjBright = brightness
         if brightness < 0.3 {
             adjBright = min(1.0, brightness + 0.15)

@@ -385,6 +385,10 @@ class AddressBarProgressView: NSView {
         layer?.addSublayer(progressLayer)
     }
     
+    func setColor(_ color: NSColor) {
+        progressLayer.backgroundColor = color.cgColor
+    }
+    
     func setProgress(_ progress: Double, animated: Bool = true) {
         let targetWidth = bounds.width * CGFloat(progress)
         
@@ -494,6 +498,10 @@ class WebViewController: NSViewController {
     private var currentFavicon: NSImage?
     private var extractionId: UUID?
     private var pendingExtractions = 0
+    private var spaDebounceWorkItem: DispatchWorkItem?
+    
+    // Per-domain color cache (shared across all instances)
+    private static var domainColorCache: [String: NSColor] = [:]
     
     // Current page title (for history)
     private var currentPageTitle: String = ""
@@ -1731,9 +1739,15 @@ extension WebViewController {
     /// Favicon is handled separately when it loads (see downloadFavicon).
     func startThemeColorExtraction() {
         guard useThemeColors else { return }
-        guard let url = _webView?.url, url.host != nil else {
+        guard let url = _webView?.url, let host = url.host else {
             applyDefaultThemeColor()
             return
+        }
+        
+        // Apply cached color immediately for instant feedback, then re-extract
+        if let cached = Self.domainColorCache[host] {
+            currentThemeColor = cached
+            applyThemeColor(cached)
         }
         
         let thisExtraction = UUID()
@@ -1761,7 +1775,36 @@ extension WebViewController {
         }
         pendingExtractions -= 1
         if pendingExtractions <= 0 && currentThemeColorSource == nil {
-            applyDefaultThemeColor()
+            extractBodyBackground()
+        }
+    }
+    
+    /// Last-resort fallback: read the computed body/html background color.
+    /// Only applied for distinctly non-white, non-transparent pages (e.g. dark mode).
+    private func extractBodyBackground() {
+        let script = """
+        (function() {
+            var bodyBg = window.getComputedStyle(document.body).backgroundColor;
+            var htmlBg = window.getComputedStyle(document.documentElement).backgroundColor;
+            function isUsable(c) {
+                return c && c !== 'transparent' && c !== 'rgba(0, 0, 0, 0)';
+            }
+            return isUsable(bodyBg) ? bodyBg : (isUsable(htmlBg) ? htmlBg : null);
+        })();
+        """
+        _webView?.evaluateJavaScript(script) { [weak self] result, _ in
+            guard let self = self, self.currentThemeColorSource == nil else { return }
+            if let colorStr = result as? String,
+               let color = ThemeColorUtils.parseColor(from: colorStr) {
+                let lum = ThemeColorUtils.luminance(of: color)
+                // Only use body background if it's clearly non-white (lum < 0.85)
+                // so we don't paint the toolbar white for default light pages
+                if lum < 0.85, let processed = ThemeColorUtils.processExtractedColor(color) {
+                    self.proposeThemeColor(processed, from: .bodyBackground)
+                    return
+                }
+            }
+            self.applyDefaultThemeColor()
         }
     }
     
@@ -1771,77 +1814,56 @@ extension WebViewController {
         currentThemeColorSource = source
         currentThemeColor = color
         applyThemeColor(color)
+        
+        if let host = _webView?.url?.host {
+            Self.domainColorCache[host] = color
+        }
     }
     
     /// Extract color from header/nav bar background (Priority 1 - visual accuracy)
     private func extractColorFromHeader(completion: @escaping (NSColor?) -> Void) {
         let script = """
         (function() {
-            // Helper: Check if element is at/near top of viewport
             function isTopElement(el) {
                 var rect = el.getBoundingClientRect();
                 return rect.top >= -50 && rect.top <= 200;
             }
-            
-            // Helper: Check if color is valid
-            function isValidColor(color) {
-                if (!color || color === 'transparent' || 
-                    color === 'rgba(0, 0, 0, 0)' ||
-                    color.includes('rgba(255, 255, 255, 0)')) {
-                    return false;
-                }
-                return true;
+            function isValidColor(c) {
+                return c && c !== 'transparent' &&
+                       c !== 'rgba(0, 0, 0, 0)' &&
+                       !c.includes('rgba(255, 255, 255, 0)');
             }
-            
-            // Find the TOPMOST visible header/nav with solid background
+            // Extract a usable color from an element, checking both
+            // backgroundColor and the background shorthand (for gradients).
+            function extractColor(el) {
+                var s = window.getComputedStyle(el);
+                if (isValidColor(s.backgroundColor)) return s.backgroundColor;
+                var bg = s.background || '';
+                var m = bg.match(/rgba?\\([^)]+\\)/);
+                if (m && isValidColor(m[0])) return m[0];
+                return null;
+            }
             var selectors = [
                 'header', 'nav', '[role="banner"]', '.header', '.navbar',
                 '.top-bar', '.site-header', '#header', '#navbar', '.main-header',
                 '.navigation', '[class*="header"]', '[class*="navbar"]', '[class*="navigation"]'
             ];
-            
             var candidates = [];
-            
             for (var i = 0; i < selectors.length; i++) {
-                var elements = document.querySelectorAll(selectors[i]);
-                for (var j = 0; j < elements.length; j++) {
-                    var el = elements[j];
-                    if (isTopElement(el)) {
-                        var style = window.getComputedStyle(el);
-                        var bgColor = style.backgroundColor;
-                        
-                        if (isValidColor(bgColor)) {
-                            var rect = el.getBoundingClientRect();
-                            candidates.push({
-                                color: bgColor,
-                                top: rect.top,
-                                width: rect.width
-                            });
-                        }
+                var els = document.querySelectorAll(selectors[i]);
+                for (var j = 0; j < els.length; j++) {
+                    if (!isTopElement(els[j])) continue;
+                    var color = extractColor(els[j]);
+                    if (color) {
+                        var rect = els[j].getBoundingClientRect();
+                        candidates.push({ color: color, top: rect.top, width: rect.width });
                     }
                 }
             }
-            
-            // Sort by: 1) closest to top, 2) widest
             candidates.sort(function(a, b) {
-                if (Math.abs(a.top - b.top) < 10) {
-                    return b.width - a.width;
-                }
-                return a.top - b.top;
+                return Math.abs(a.top - b.top) < 10 ? b.width - a.width : a.top - b.top;
             });
-            
-            if (candidates.length > 0) {
-                return candidates[0].color;
-            }
-            
-            // Fallback: try body background
-            var bodyStyle = window.getComputedStyle(document.body);
-            var bodyBg = bodyStyle.backgroundColor;
-            if (isValidColor(bodyBg)) {
-                return bodyBg;
-            }
-            
-            return null;
+            return candidates.length > 0 ? candidates[0].color : null;
         })();
         """
         
@@ -1975,7 +1997,16 @@ extension WebViewController {
             }
         }
         
-        guard let best = colorCounts.max(by: { $0.value < $1.value }) else { return nil }
+        let sorted = colorCounts.sorted { $0.value > $1.value }
+        guard let best = sorted.first else { return nil }
+        
+        // If the top color doesn't clearly dominate (< 1.5x the runner-up),
+        // the icon is multi-colored (e.g. Google's G) and unreliable — skip it.
+        if sorted.count >= 2 {
+            let runnerUp = sorted[1].value
+            if Double(best.value) < Double(runnerUp) * 1.5 { return nil }
+        }
+        
         let c = best.key.split(separator: ",").compactMap { Double($0) }
         guard c.count == 3 else { return nil }
         
@@ -1987,31 +2018,35 @@ extension WebViewController {
     
     private func applyThemeColor(_ color: NSColor) {
         guard useThemeColors else { return }
+        animateToolbarColor(color)
+    }
+    
+    private func applyDefaultThemeColor() {
+        guard useThemeColors else { return }
+        animateToolbarColor(NSColor(white: 0.95, alpha: 1.0))
+        currentThemeColor = nil
+        currentThemeColorSource = nil
+    }
+    
+    /// Animate toolbar, traffic-light area, and control bar to the new color.
+    private func animateToolbarColor(_ color: NSColor) {
+        let toolbarCG = color.withAlphaComponent(0.85).cgColor
+        let trafficCG = color.withAlphaComponent(0.90).cgColor
         
-        toolbar.layer?.backgroundColor = color.withAlphaComponent(0.85).cgColor
-        trafficLightArea.layer?.backgroundColor = color.withAlphaComponent(0.90).cgColor
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(0.25)
+        CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeInEaseOut))
+        
+        toolbar.layer?.backgroundColor = toolbarCG
+        trafficLightArea.layer?.backgroundColor = trafficCG
         
         if let panelWindow = view.window as? PanelWindow {
             panelWindow.applyThemeColorToControlBar(color)
         }
         
+        CATransaction.commit()
+        
         adaptUIElementColors(forBackgroundColor: color)
-    }
-    
-    private func applyDefaultThemeColor() {
-        guard useThemeColors else { return }
-        
-        let defaultColor = NSColor(white: 0.95, alpha: 1.0)
-        toolbar.layer?.backgroundColor = defaultColor.withAlphaComponent(0.85).cgColor
-        trafficLightArea.layer?.backgroundColor = defaultColor.withAlphaComponent(0.90).cgColor
-        
-        if let panelWindow = view.window as? PanelWindow {
-            panelWindow.applyThemeColorToControlBar(defaultColor)
-        }
-        
-        adaptUIElementColors(forBackgroundColor: defaultColor)
-        currentThemeColor = nil
-        currentThemeColorSource = nil
     }
     
     /// Adapt all toolbar UI elements for contrast against the given background.
@@ -2037,6 +2072,8 @@ extension WebViewController {
                 .font: NSFont.systemFont(ofSize: 13)
             ]
         )
+        
+        addressBarProgressView.setColor(iconColor.withAlphaComponent(0.5))
     }
     
     // MARK: Mode Resets
@@ -2078,6 +2115,8 @@ extension WebViewController {
                 .font: NSFont.systemFont(ofSize: 13)
             ]
         )
+        
+        addressBarProgressView.setColor(NSColor.controlAccentColor)
     }
     
     /// Called when theme color mode is toggled in preferences.
@@ -2109,10 +2148,13 @@ extension WebViewController: WKScriptMessageHandler {
                 proposeThemeColor(processed, from: .metaTag)
             }
         case "navigation":
-            // SPA route change — re-extract after the DOM settles
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            // SPA route change — debounce so rapid pushState calls only trigger one extraction
+            spaDebounceWorkItem?.cancel()
+            let work = DispatchWorkItem { [weak self] in
                 self?.startThemeColorExtraction()
             }
+            spaDebounceWorkItem = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: work)
         default:
             break
         }

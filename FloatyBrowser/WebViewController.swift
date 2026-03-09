@@ -643,9 +643,6 @@ class WebViewController: NSViewController {
         // Only update if width actually changed (avoid unnecessary updates)
         if abs(urlField.frame.width - newUrlFieldWidth) > 0.1 {
             urlField.frame.size.width = newUrlFieldWidth
-            
-            // Also update progress bar to match
-            addressBarProgressView.frame.size.width = newUrlFieldWidth
         }
     }
     
@@ -787,20 +784,18 @@ class WebViewController: NSViewController {
         lockIcon.isHidden = true  // Hidden by default, shown when HTTPS
         toolbar.addSubview(lockIcon)
         
-        // Address bar progress view - positioned at the bottom of the address bar
+        // Address bar progress view - child of urlField so it clips to rounded corners
         let progressBarHeight: CGFloat = 3
         addressBarProgressView.frame = NSRect(
-            x: urlField.frame.origin.x,
-            y: urlField.frame.origin.y,
-            width: urlField.frame.width,
+            x: 0,
+            y: 0,
+            width: urlField.bounds.width,
             height: progressBarHeight
         )
-        // No autoresizing - we'll update in viewDidLayout
+        addressBarProgressView.autoresizingMask = [.width]
         addressBarProgressView.wantsLayer = true
-        addressBarProgressView.layer?.cornerRadius = 1.5  // Slight rounding
-        addressBarProgressView.layer?.masksToBounds = true
-        addressBarProgressView.alphaValue = 0  // Start hidden
-        toolbar.addSubview(addressBarProgressView)
+        addressBarProgressView.alphaValue = 0
+        urlField.addSubview(addressBarProgressView)
         
         // New bubble button - add AFTER address bar so it's on top (clickable)
         newBubbleButton.frame = NSRect(x: plusButtonX, y: buttonY, width: buttonSize, height: buttonSize)

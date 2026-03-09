@@ -13,6 +13,7 @@ import AuthenticationServices
 
 protocol AddressBarTextViewDelegate: AnyObject {
     func addressBarDidSubmit(_ addressBar: AddressBarTextView, text: String)
+    func addressBar(_ addressBar: AddressBarTextView, completionForPrefix prefix: String) -> String?
 }
 
 /// Browser-style address bar built on NSTextView.
@@ -29,11 +30,15 @@ class AddressBarTextView: NSView, NSTextViewDelegate {
     private var didJustEnterEditing = false
     private var fullURL: String = ""
 
+    // Inline autocomplete state
+    private var userTypedText: String = ""
+    private var isAutocompleting = false
+    private var suppressAutocomplete = false
+
     var hasLockIcon: Bool = false {
         didSet {
-            let pad: CGFloat = hasLockIcon ? 32 : 8
-            textView.textContainerInset = NSSize(width: pad, height: verticalInset)
-            placeholderLabel.frame.origin.x = pad + 4
+            textView.textContainerInset = NSSize(width: hasLockIcon ? 32 : 8, height: verticalInset)
+            layoutPlaceholder()
             needsDisplay = true
         }
     }
@@ -103,16 +108,17 @@ class AddressBarTextView: NSView, NSTextViewDelegate {
         textView.textContainerInset = NSSize(width: 8, height: verticalInset)
         scrollView.documentView = textView
 
-        // Placeholder label
+        // Placeholder label — positioned to match the text view's vertical centering
         placeholderLabel.font = font
         placeholderLabel.textColor = NSColor.placeholderTextColor
         placeholderLabel.isBezeled = false
         placeholderLabel.drawsBackground = false
         placeholderLabel.isEditable = false
         placeholderLabel.isSelectable = false
-        placeholderLabel.frame = NSRect(x: 12, y: 0, width: bounds.width - 24, height: bounds.height)
-        placeholderLabel.autoresizingMask = [.width, .height]
+        placeholderLabel.sizeToFit()
+        placeholderLabel.autoresizingMask = [.width]
         addSubview(placeholderLabel)
+        layoutPlaceholder()
     }
 
     override func layout() {
@@ -126,6 +132,14 @@ class AddressBarTextView: NSView, NSTextViewDelegate {
             width: hasLockIcon ? 32 : 8,
             height: verticalInset
         )
+        layoutPlaceholder()
+    }
+
+    private func layoutPlaceholder() {
+        let pad: CGFloat = hasLockIcon ? 36 : 12
+        let labelH = placeholderLabel.intrinsicContentSize.height
+        let y = round((bounds.height - labelH) / 2)
+        placeholderLabel.frame = NSRect(x: pad, y: y, width: bounds.width - pad - 8, height: labelH)
     }
 
     // MARK: - Public API
@@ -193,6 +207,8 @@ class AddressBarTextView: NSView, NSTextViewDelegate {
     private func enterEditing() {
         isEditing = true
         didJustEnterEditing = true
+        userTypedText = ""
+        suppressAutocomplete = true
         animateFocusGlow(isFocused: true)
 
         if !fullURL.isEmpty {
@@ -223,22 +239,89 @@ class AddressBarTextView: NSView, NSTextViewDelegate {
             return true
         }
         if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
-            // Escape: revert to simplified URL and dismiss
             if !fullURL.isEmpty {
                 textView.string = simplifiedURL(from: fullURL)
             }
             window?.makeFirstResponder(nil)
             return true
         }
+        if commandSelector == #selector(NSResponder.deleteBackward(_:)) ||
+           commandSelector == #selector(NSResponder.deleteForward(_:)) {
+            // Suppress autocomplete for the next text change after a delete.
+            // If there's an active suggestion, just clear it and remove the
+            // selected ghost text — don't delete the user's own characters.
+            if hasActiveSuggestion {
+                let typed = userTypedText
+                isAutocompleting = true
+                textView.string = typed
+                textView.setSelectedRange(NSRange(location: typed.count, length: 0))
+                isAutocompleting = false
+                userTypedText = typed
+                suppressAutocomplete = true
+                updatePlaceholderVisibility()
+                return true
+            }
+            suppressAutocomplete = true
+            return false
+        }
+        if commandSelector == #selector(NSResponder.moveRight(_:)) ||
+           commandSelector == #selector(NSResponder.moveToEndOfLine(_:)) ||
+           commandSelector == #selector(NSResponder.insertTab(_:)) {
+            // Accept suggestion: place cursor at the end
+            if hasActiveSuggestion {
+                textView.setSelectedRange(NSRange(location: textView.string.count, length: 0))
+                userTypedText = textView.string
+                return true
+            }
+            if commandSelector == #selector(NSResponder.insertTab(_:)) {
+                return true
+            }
+            return false
+        }
         return false
     }
 
     func textDidChange(_ notification: Notification) {
         updatePlaceholderVisibility()
+
+        // Don't recurse when we're programmatically modifying the text.
+        guard !isAutocompleting else { return }
+
+        let currentText = textView.string
+
+        if suppressAutocomplete {
+            suppressAutocomplete = false
+            userTypedText = currentText
+            return
+        }
+
+        userTypedText = currentText
+
+        guard !currentText.isEmpty,
+              let completion = addressBarDelegate?.addressBar(self, completionForPrefix: currentText) else {
+            return
+        }
+
+        // `completion` is the full URL/string. We only want the suffix beyond what the user typed.
+        let suffix = String(completion.dropFirst(currentText.count))
+        guard !suffix.isEmpty else { return }
+
+        // Append the ghost text and select it so the next keystroke replaces it.
+        isAutocompleting = true
+        textView.string = currentText + suffix
+        textView.setSelectedRange(NSRange(location: currentText.count, length: suffix.count))
+        isAutocompleting = false
     }
 
     func textDidEndEditing(_ notification: Notification) {
+        userTypedText = ""
+        suppressAutocomplete = false
         exitEditing()
+    }
+
+    private var hasActiveSuggestion: Bool {
+        let sel = textView.selectedRange()
+        return sel.length > 0 && sel.location == userTypedText.count && textView.string.count > userTypedText.count
     }
 
     // MARK: - Helpers
@@ -1237,6 +1320,33 @@ class WebViewController: NSViewController {
 extension WebViewController: AddressBarTextViewDelegate {
     func addressBarDidSubmit(_ addressBar: AddressBarTextView, text: String) {
         loadURL(urlField.getFullURL())
+    }
+
+    func addressBar(_ addressBar: AddressBarTextView, completionForPrefix prefix: String) -> String? {
+        let query = prefix.lowercased()
+        guard query.count >= 2 else { return nil }
+
+        // Search history for a URL whose domain (or full URL without scheme) starts with the typed prefix.
+        let entries = HistoryManager.shared.getAllEntries()
+
+        // Build candidate strings to match against, preferring most-recently-visited.
+        for entry in entries {
+            guard let url = URL(string: entry.url), let host = url.host else { continue }
+
+            // Strip www. for matching
+            let bareHost = host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+            // Full URL without scheme, e.g. "google.com/search?q=test"
+            let withoutScheme = bareHost + (url.path == "/" ? "" : url.path)
+
+            if withoutScheme.lowercased().hasPrefix(query) {
+                return withoutScheme
+            }
+            // Also try matching with scheme, e.g. user typed "https://g"
+            if entry.url.lowercased().hasPrefix(query) {
+                return entry.url
+            }
+        }
+        return nil
     }
 }
 

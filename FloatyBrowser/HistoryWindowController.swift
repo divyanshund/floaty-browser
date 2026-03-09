@@ -28,8 +28,6 @@ class HistoryWindowController: NSWindowController {
     
     // Data
     private var displayedEntries: [HistoryEntry] = []
-    private var groupedEntries: [(date: String, entries: [HistoryEntry])] = []
-    private var isGrouped = true
     
     // MARK: - Initialization
     
@@ -145,7 +143,6 @@ class HistoryWindowController: NSWindowController {
     // MARK: - Data Loading
     
     private func loadHistory() {
-        groupedEntries = historyManager.getEntriesGroupedByDate()
         displayedEntries = historyManager.getAllEntries()
         updateCountLabel()
         tableView.reloadData()
@@ -171,7 +168,6 @@ class HistoryWindowController: NSWindowController {
             loadHistory()
         } else {
             displayedEntries = historyManager.search(query: query)
-            isGrouped = false
             updateCountLabel()
             tableView.reloadData()
         }

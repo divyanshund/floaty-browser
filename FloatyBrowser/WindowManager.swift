@@ -6,7 +6,6 @@
 //
 
 import Cocoa
-import Carbon
 import WebKit
 
 class WindowManager: NSObject {

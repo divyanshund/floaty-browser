@@ -86,13 +86,5 @@ final class SharedWebConfiguration {
             completion()
         }
     }
-    
-    /// Gets current cookie count (for debugging/info).
-    func getCookieCount(completion: @escaping (Int) -> Void) {
-        dataStore.httpCookieStore.getAllCookies { cookies in
-            print("🍪 SharedWebConfiguration: Current cookie count: \(cookies.count)")
-            completion(cookies.count)
-        }
-    }
 }
 

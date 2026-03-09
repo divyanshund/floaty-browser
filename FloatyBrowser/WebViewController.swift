@@ -517,9 +517,6 @@ class WebViewController: NSViewController {
     // OAuth authentication session (Apple's official OAuth API)
     private var authSession: ASWebAuthenticationSession?
     
-    // Track if we've seen OAuth-related URLs (to avoid closing blank pages prematurely)
-    private var hasSeenOAuthURL = false
-    
     // Pending URL to load once webView is ready
     private var pendingURL: String?
     

@@ -216,11 +216,6 @@ class HistoryManager {
         saveHistoryAsync()
     }
     
-    /// Get total number of history entries
-    var count: Int {
-        return entries.count
-    }
-    
     // MARK: - Private Methods
     
     /// Load history from disk

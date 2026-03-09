@@ -18,10 +18,6 @@ enum BubbleAppearance: String, CaseIterable {
     case roseGold = "Rose Gold"
     case midnight = "Midnight"
     
-    var userDefaultsKey: String {
-        return "bubbleAppearance"
-    }
-    
     static func getCurrentAppearance() -> BubbleAppearance {
         if let savedAppearance = UserDefaults.standard.string(forKey: "bubbleAppearance"),
            let appearance = BubbleAppearance(rawValue: savedAppearance) {
@@ -355,11 +351,6 @@ class BubbleWindow: NSPanel {
             
             animator().setFrameOrigin(newOrigin)
         }
-    }
-    
-    /// Update home position after user drags the bubble
-    func updateHomePosition() {
-        idleHomePosition = frame.origin
     }
     
     func updateURL(_ url: String) {

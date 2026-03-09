@@ -14,7 +14,7 @@ class PreferencesWindowController: NSWindowController {
     convenience init() {
         // Create the preferences window with translucent background
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 600, height: 580),  // Increased from 450 to 580
+            contentRect: NSRect(x: 0, y: 0, width: 500, height: 420),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -76,9 +76,11 @@ class PreferencesWindowController: NSWindowController {
             // Create visual effect view with proper frame
             let visualEffectView = NSVisualEffectView(frame: window.contentView!.bounds)
             visualEffectView.autoresizingMask = [.width, .height]
-            visualEffectView.material = .hudWindow  // More frosted than .sidebar
+            visualEffectView.material = .hudWindow
             visualEffectView.blendingMode = .behindWindow
             visualEffectView.state = .active
+            visualEffectView.wantsLayer = true
+            visualEffectView.layer?.backgroundColor = NSColor(white: 1.0, alpha: 0.15).cgColor
             
             // Insert behind all content
             window.contentView?.addSubview(visualEffectView, positioned: .below, relativeTo: nil)

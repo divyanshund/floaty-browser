@@ -473,6 +473,25 @@ private class WeakScriptMessageHandler: NSObject, WKScriptMessageHandler {
 }
 
 class WebViewController: NSViewController {
+    /// Internal URL that opens the bundled Floaty start page (quick links).
+    /// Stored on bubbles so it persists across launches without being treated
+    /// as a regular web URL anywhere in the app.
+    static let newTabURLString = "floaty://newtab"
+
+    /// Resolved file URL of the bundled new-tab HTML, if available.
+    static var newTabFileURL: URL? {
+        return Bundle.main.url(forResource: "new_tab", withExtension: "html")
+    }
+
+    /// True when `urlString` should be displayed/persisted as the Floaty
+    /// new-tab page (covers both the `floaty://newtab` alias and the actual
+    /// file URL that WKWebView reports after loading it).
+    static func isNewTabURL(_ urlString: String) -> Bool {
+        if urlString == newTabURLString { return true }
+        if let fileURL = newTabFileURL, urlString == fileURL.absoluteString { return true }
+        return false
+    }
+
     private var _webView: WKWebView?
     var webView: WKWebView? { return _webView }
     
@@ -910,8 +929,17 @@ class WebViewController: NSViewController {
             forwardButton.isEnabled = webView.canGoForward
         } else if keyPath == #keyPath(WKWebView.url) {
             if let url = webView.url {
-                urlField.setURL(url.absoluteString)
-                delegate?.webViewController(self, didUpdateURL: url.absoluteString)
+                let urlString = url.absoluteString
+                if WebViewController.isNewTabURL(urlString) {
+                    // Show the address bar as empty so its placeholder appears,
+                    // and persist the bubble's URL as the floaty://newtab alias
+                    // (not the on-disk file:// URL, which would be wrong on next launch).
+                    urlField.setURL("")
+                    delegate?.webViewController(self, didUpdateURL: WebViewController.newTabURLString)
+                } else {
+                    urlField.setURL(urlString)
+                    delegate?.webViewController(self, didUpdateURL: urlString)
+                }
                 // Update lock icon when URL changes
                 updateLockIcon()
                 // Don't fetch favicon here - wait for page to load
@@ -927,7 +955,13 @@ class WebViewController: NSViewController {
         let trimmedInput = String(urlString.trimmingCharacters(in: .whitespacesAndNewlines))
         
         guard !trimmedInput.isEmpty else { return }
-        
+
+        // Floaty's internal start page — load the bundled HTML file directly.
+        if WebViewController.isNewTabURL(trimmedInput) {
+            loadNewTabPage()
+            return
+        }
+
         // Safety: For popup windows, don't manually load URLs
         // WebKit automatically navigates popups - manual loading causes race conditions
         if isPopupWindow {
@@ -1295,6 +1329,28 @@ class WebViewController: NSViewController {
         _webView?.loadFileURL(gameURL, allowingReadAccessTo: gameURL.deletingLastPathComponent())
         print("🎮 FloatyBrowser: Loading Snake Game - no internet detected")
     }
+
+    private func loadNewTabPage() {
+        guard let pageURL = WebViewController.newTabFileURL else {
+            print("❌ Could not find new_tab.html in bundle")
+            return
+        }
+
+        // Defer if the WKWebView isn't fully wired up yet — same pattern as loadURL().
+        guard let webView = _webView else {
+            pendingURL = WebViewController.newTabURLString
+            return
+        }
+        if webView.superview == nil || webView.window == nil {
+            DispatchQueue.main.async { [weak self] in
+                self?.loadNewTabPage()
+            }
+            return
+        }
+
+        webView.loadFileURL(pageURL, allowingReadAccessTo: pageURL.deletingLastPathComponent())
+        print("🌟 FloatyBrowser: Loading new tab start page")
+    }
 }
 
 // MARK: - AddressBarTextViewDelegate
@@ -1378,19 +1434,42 @@ extension WebViewController: WKNavigationDelegate {
         
         progressIndicator.isHidden = true
         updateLockIcon()
-        
-        if !isPopupWindow, let url = webView.url {
+
+        let isNewTab = (webView.url.map { WebViewController.isNewTabURL($0.absoluteString) } ?? false)
+
+        if !isPopupWindow, !isNewTab, let url = webView.url {
             let title = webView.title ?? currentPageTitle
             HistoryManager.shared.recordVisit(url: url.absoluteString, title: title)
         }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            self?.fetchFavicon()
+
+        if isNewTab {
+            // The start page is a local file with no favicon, so skip the
+            // remote favicon fetch. We still want a sensible toolbar color
+            // (otherwise it would sit at the default grey) — pick one that
+            // matches the page's own background.
+            if useThemeColors {
+                applyNewTabThemeColor()
+            }
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                self?.fetchFavicon()
+            }
+
+            if useThemeColors {
+                startThemeColorExtraction()
+            }
         }
-        
-        if useThemeColors {
-            startThemeColorExtraction()
-        }
+    }
+
+    /// Tint the toolbar to match the Floaty start page's own background.
+    /// Picks a slightly different shade for light vs dark appearance so the
+    /// titlebar reads as part of the same surface as the page underneath.
+    private func applyNewTabThemeColor() {
+        let isDark = (view.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua)
+        let color: NSColor = isDark
+            ? NSColor(calibratedRed: 0.11, green: 0.11, blue: 0.12, alpha: 1.0)
+            : NSColor(calibratedRed: 0.96, green: 0.97, blue: 0.99, alpha: 1.0)
+        proposeThemeColor(color, from: .bodyBackground)
     }
     
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {

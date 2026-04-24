@@ -277,7 +277,7 @@ class WindowManager: NSObject {
     
     func createDefaultBubble() {
         NSLog("🫧 FloatyBrowser: Creating default bubble")
-        let bubble = createBubble(url: "https://www.google.com")
+        let bubble = createBubble(url: WebViewController.newTabURLString)
         print("Default bubble created - isVisible: \(bubble.isVisible), frame: \(bubble.frame)")
     }
     
@@ -373,9 +373,14 @@ class WindowManager: NSObject {
     
     private func fetchFaviconForBubble(_ bubble: BubbleWindow) {
         let urlString = bubble.currentURL
+
+        // The Floaty start page is internal — it uses a custom bubble icon
+        // (set by BubbleView) and has no remote favicon to fetch.
+        if WebViewController.isNewTabURL(urlString) { return }
+
         guard let url = URL(string: urlString),
               let host = url.host else { return }
-        
+
         // Use Google's high-quality favicon API (size 128 for Retina displays)
         let faviconURLString = "https://www.google.com/s2/favicons?domain=\(host)&sz=128"
         guard let faviconURL = URL(string: faviconURLString) else { return }

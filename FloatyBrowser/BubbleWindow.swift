@@ -653,11 +653,30 @@ class BubbleView: NSView {
     }
     
     func updateFavicon(for url: String) {
+        // Floaty's internal start page gets its own crisp SF Symbol icon
+        // (renders perfectly centered via the image view, unlike emoji glyphs
+        // whose metrics vary by character).
+        if WebViewController.isNewTabURL(url) {
+            if let symbol = NSImage(systemSymbolName: "sparkles", accessibilityDescription: "Floaty start page") {
+                let config = NSImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
+                let tinted = symbol.withSymbolConfiguration(config) ?? symbol
+                tinted.isTemplate = true
+                iconImageView.contentTintColor = .white
+                setFaviconImage(tinted)
+            } else {
+                usingImage = false
+                iconImageView.isHidden = true
+                iconLabel.isHidden = false
+                iconLabel.stringValue = "✨"
+            }
+            return
+        }
+
         // Show emoji as fallback
         usingImage = false
         iconImageView.isHidden = true
         iconLabel.isHidden = false
-        
+
         // Simple domain-based icon
         if url.contains("github") {
             iconLabel.stringValue = "📦"

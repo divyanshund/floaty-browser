@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Bubble</title>
+    <style>
+        :root {
+            --bg-start: #f6f7fb;
+            --bg-end: #eef0f7;
+            --text-primary: #1d1d1f;
+            --text-secondary: #6b6b70;
+            --tile-bg: rgba(255, 255, 255, 0.72);
+            --tile-bg-hover: rgba(255, 255, 255, 0.95);
+            --tile-border: rgba(0, 0, 0, 0.06);
+            --tile-shadow: rgba(0, 0, 0, 0.06);
+            --tile-shadow-hover: rgba(0, 0, 0, 0.12);
+            --accent: #007aff;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-start: #1c1c1e;
+                --bg-end: #131315;
+                --text-primary: #f5f5f7;
+                --text-secondary: #a1a1a6;
+                --tile-bg: rgba(255, 255, 255, 0.06);
+                --tile-bg-hover: rgba(255, 255, 255, 0.12);
+                --tile-border: rgba(255, 255, 255, 0.08);
+                --tile-shadow: rgba(0, 0, 0, 0.4);
+                --tile-shadow-hover: rgba(0, 0, 0, 0.55);
+                --accent: #0a84ff;
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+            -webkit-font-smoothing: antialiased;
+            color: var(--text-primary);
+            background:
+                radial-gradient(ellipse at top, rgba(0, 122, 255, 0.08), transparent 60%),
+                radial-gradient(ellipse at bottom right, rgba(175, 82, 222, 0.06), transparent 50%),
+                linear-gradient(180deg, var(--bg-start) 0%, var(--bg-end) 100%);
+            background-attachment: fixed;
+            overflow-x: hidden;
+        }
+
+        .page {
+            min-height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 32px 20px 48px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 36px;
+            opacity: 0;
+            animation: fadeUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.05s forwards;
+        }
+
+        .greeting {
+            font-size: 32px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            margin-bottom: 6px;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 18px 14px;
+            width: 100%;
+            max-width: 460px;
+        }
+
+        @media (max-width: 380px) {
+            .grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        .tile {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: inherit;
+            padding: 8px 4px;
+            border-radius: 14px;
+            transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+                        background 0.2s ease;
+            opacity: 0;
+            animation: fadeUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            cursor: pointer;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        .tile:nth-child(1)  { animation-delay: 0.10s; }
+        .tile:nth-child(2)  { animation-delay: 0.13s; }
+        .tile:nth-child(3)  { animation-delay: 0.16s; }
+        .tile:nth-child(4)  { animation-delay: 0.19s; }
+        .tile:nth-child(5)  { animation-delay: 0.22s; }
+        .tile:nth-child(6)  { animation-delay: 0.25s; }
+        .tile:nth-child(7)  { animation-delay: 0.28s; }
+        .tile:nth-child(8)  { animation-delay: 0.31s; }
+        .tile:nth-child(9)  { animation-delay: 0.34s; }
+        .tile:nth-child(10) { animation-delay: 0.37s; }
+        .tile:nth-child(11) { animation-delay: 0.40s; }
+        .tile:nth-child(12) { animation-delay: 0.43s; }
+
+        .tile:hover {
+            transform: translateY(-3px);
+        }
+
+        .tile:hover .icon {
+            background: var(--tile-bg-hover);
+            box-shadow: 0 10px 24px var(--tile-shadow-hover);
+            transform: scale(1.04);
+        }
+
+        .tile:active .icon {
+            transform: scale(0.96);
+        }
+
+        .icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--tile-bg);
+            border: 0.5px solid var(--tile-border);
+            box-shadow: 0 4px 14px var(--tile-shadow);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+                        background 0.2s ease,
+                        box-shadow 0.25s ease;
+            position: relative;
+        }
+
+        .icon img {
+            width: 32px;
+            height: 32px;
+            object-fit: contain;
+            display: block;
+        }
+
+        .icon .letter {
+            font-size: 22px;
+            font-weight: 600;
+            color: #ffffff;
+            line-height: 1;
+        }
+
+        .label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-primary);
+            text-align: center;
+            max-width: 80px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            opacity: 0.85;
+        }
+
+        .footer {
+            margin-top: 40px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            opacity: 0;
+            animation: fadeUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.55s forwards;
+        }
+
+        .footer .dot {
+            display: inline-block;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: currentColor;
+            opacity: 0.5;
+            margin: 0 6px;
+            vertical-align: middle;
+        }
+
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="page">
+        <header class="header">
+            <h1 class="greeting" id="greeting">Hello</h1>
+            <p class="subtitle">Where would you like to go?</p>
+        </header>
+
+        <nav class="grid" id="grid"></nav>
+
+        <p class="footer">
+            Floaty Browser
+            <span class="dot"></span>
+            Type a URL or search above
+        </p>
+    </main>
+
+    <script>
+        // Curated quick links. Colors are used for the letter-based fallback
+        // when a favicon cannot be loaded.
+        const SITES = [
+            { name: 'Google',    url: 'https://www.google.com',         color: '#4285F4' },
+            { name: 'YouTube',   url: 'https://www.youtube.com',        color: '#FF0000' },
+            { name: 'Gmail',     url: 'https://mail.google.com',        color: '#EA4335' },
+            { name: 'GitHub',    url: 'https://github.com',             color: '#1f1f1f' },
+            { name: 'X',         url: 'https://x.com',                  color: '#000000' },
+            { name: 'Reddit',    url: 'https://www.reddit.com',         color: '#FF4500' },
+            { name: 'ChatGPT',   url: 'https://chatgpt.com',            color: '#10a37f' },
+            { name: 'Wikipedia', url: 'https://www.wikipedia.org',      color: '#636363' },
+            { name: 'Maps',      url: 'https://maps.google.com',        color: '#34A853' },
+            { name: 'Amazon',    url: 'https://www.amazon.com',         color: '#FF9900' },
+            { name: 'Spotify',   url: 'https://open.spotify.com',       color: '#1DB954' },
+            { name: 'Netflix',   url: 'https://www.netflix.com',        color: '#E50914' }
+        ];
+
+        function hostnameOf(url) {
+            try { return new URL(url).hostname; } catch (e) { return url; }
+        }
+
+        function faviconURL(url) {
+            const host = hostnameOf(url);
+            return `https://www.google.com/s2/favicons?domain=${host}&sz=128`;
+        }
+
+        function buildTile(site) {
+            const tile = document.createElement('a');
+            tile.className = 'tile';
+            tile.href = site.url;
+            tile.title = site.name;
+
+            const icon = document.createElement('div');
+            icon.className = 'icon';
+
+            const img = document.createElement('img');
+            img.alt = '';
+            img.loading = 'lazy';
+            img.referrerPolicy = 'no-referrer';
+            img.src = faviconURL(site.url);
+            img.onerror = () => {
+                // Fall back to a colored letter circle
+                icon.style.background = site.color;
+                icon.style.borderColor = 'transparent';
+                img.remove();
+                const letter = document.createElement('span');
+                letter.className = 'letter';
+                letter.textContent = site.name.charAt(0).toUpperCase();
+                icon.appendChild(letter);
+            };
+
+            icon.appendChild(img);
+
+            const label = document.createElement('span');
+            label.className = 'label';
+            label.textContent = site.name;
+
+            tile.appendChild(icon);
+            tile.appendChild(label);
+            return tile;
+        }
+
+        function setGreeting() {
+            const h = new Date().getHours();
+            let g;
+            if (h < 5)       g = 'Good night';
+            else if (h < 12) g = 'Good morning';
+            else if (h < 17) g = 'Good afternoon';
+            else if (h < 22) g = 'Good evening';
+            else             g = 'Good night';
+            document.getElementById('greeting').textContent = g;
+        }
+
+        function render() {
+            const grid = document.getElementById('grid');
+            const fragment = document.createDocumentFragment();
+            SITES.forEach(site => fragment.appendChild(buildTile(site)));
+            grid.appendChild(fragment);
+        }
+
+        setGreeting();
+        render();
+    </script>
+</body>
+</html>

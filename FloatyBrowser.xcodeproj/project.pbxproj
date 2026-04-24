@@ -16,6 +16,7 @@
 		1A0020 /* FloatyBrowserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0021 /* FloatyBrowserTests.swift */; };
 		1A0050 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0051 /* main.swift */; };
 		1A0052 /* snake_game.html in Resources */ = {isa = PBXBuildFile; fileRef = 1A0053 /* snake_game.html */; };
+		1A0054 /* new_tab.html in Resources */ = {isa = PBXBuildFile; fileRef = 1A0055 /* new_tab.html */; };
 		1A0060 /* OnboardingWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0061 /* OnboardingWindowController.swift */; };
 		1A0062 /* OnboardingViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0063 /* OnboardingViewController.swift */; };
 		1A0064 /* PreferencesWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0065 /* PreferencesWindowController.swift */; };
@@ -50,6 +51,7 @@
 		1A0022 /* FloatyBrowserTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FloatyBrowserTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A0051 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		1A0053 /* snake_game.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = snake_game.html; sourceTree = "<group>"; };
+		1A0055 /* new_tab.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = new_tab.html; sourceTree = "<group>"; };
 		1A0061 /* OnboardingWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingWindowController.swift; sourceTree = "<group>"; };
 		1A0063 /* OnboardingViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingViewController.swift; sourceTree = "<group>"; };
 		1A0065 /* PreferencesWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesWindowController.swift; sourceTree = "<group>"; };
@@ -108,6 +110,7 @@
 				1A0065 /* PreferencesWindowController.swift */,
 				1A0067 /* PreferencesViewController.swift */,
 				1A0053 /* snake_game.html */,
+				1A0055 /* new_tab.html */,
 				1A0013 /* Info.plist */,
 			);
 			path = FloatyBrowser;
@@ -213,6 +216,7 @@
 			files = (
 				E89C7BC52EBE131B006F99F2 /* Assets.xcassets in Resources */,
 				1A0052 /* snake_game.html in Resources */,
+				1A0054 /* new_tab.html in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

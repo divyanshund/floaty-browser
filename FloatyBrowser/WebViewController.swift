@@ -1885,7 +1885,7 @@ extension WebViewController {
         currentThemeColorSource = source
         currentThemeColor = color
         applyThemeColor(color)
-        
+
         if let host = _webView?.url?.host {
             Self.domainColorCache[host] = color
         }
